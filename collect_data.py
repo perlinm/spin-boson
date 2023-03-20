@@ -36,6 +36,7 @@ def compute_fisher_vals(
     coupling: float,
     state_key: str,
     data_dir: str,
+    recompute: bool = False,
     status_updates: bool = False,
 ) -> None:
     os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
@@ -46,21 +47,21 @@ def compute_fisher_vals(
                 if status_updates:
                     print(num_spins, f"{kk}/{len(decay_res_vals)}", f"{gg}/{len(decay_spin_vals)}")
 
-                fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
-                    times,
-                    num_spins,
-                    splitting,
-                    coupling,
-                    decay_res,
-                    decay_spin,
-                    get_initial_state[state_key](num_spins),
-                )
-
                 args = (state_key, num_spins, decay_res, decay_spin)
                 file_QFI = get_file_path(data_dir, "fisher", *args)
                 file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
-                np.savetxt(file_QFI, fisher_vals)
-                np.savetxt(file_QFI_SA, scaled_fisher_vals)
+                if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI):
+                    fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
+                        times,
+                        num_spins,
+                        splitting,
+                        coupling,
+                        decay_res,
+                        decay_spin,
+                        get_initial_state[state_key](num_spins),
+                    )
+                    np.savetxt(file_QFI, fisher_vals)
+                    np.savetxt(file_QFI_SA, scaled_fisher_vals)
 
 
 def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
@@ -80,6 +81,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--coupling", type=float, default=0.04)  # eV
     parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
     parser.add_argument("--time_points", type=int, default=101)
+    parser.add_argument("--recompute", action="store_true", default=False)
 
     # default directories
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -113,5 +115,6 @@ if __name__ == "__main__":
         args.coupling,
         args.state_key,
         args.data_dir,
+        recompute=args.recompute,
         status_updates=True,
     )
