@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import multiprocessing
 import os
 import sys
 from typing import Sequence
@@ -29,6 +30,30 @@ get_initial_state = {
 
 def compute_fisher_vals(
     times: np.ndarray,
+    num_spins: int,
+    decay_res: float,
+    decay_spin: float,
+    splitting: float,
+    coupling: float,
+    initial_state: np.ndarray,
+    file_QFI: str,
+    file_QFI_SA: str,
+) -> None:
+    fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
+        times,
+        num_spins,
+        splitting,
+        coupling,
+        decay_res,
+        decay_spin,
+        initial_state,
+    )
+    np.savetxt(file_QFI, fisher_vals)
+    np.savetxt(file_QFI_SA, scaled_fisher_vals)
+
+
+def batch_compute_fisher_vals(
+    times: np.ndarray,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
@@ -36,32 +61,46 @@ def compute_fisher_vals(
     coupling: float,
     state_key: str,
     data_dir: str,
+    num_jobs: int = 1,
     recompute: bool = False,
     status_updates: bool = False,
 ) -> None:
     os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
 
-    for num_spins in num_spin_vals:
-        for kk, decay_res in enumerate(decay_res_vals):
-            for gg, decay_spin in enumerate(decay_spin_vals):
-                if status_updates:
-                    print(num_spins, f"{kk}/{len(decay_res_vals)}", f"{gg}/{len(decay_spin_vals)}")
+    processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
+    with multiprocessing.Pool(processes=processes) as pool:
+        results = []
 
-                args = (state_key, num_spins, decay_res, decay_spin)
-                file_QFI = get_file_path(data_dir, "fisher", *args)
-                file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
-                if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI):
-                    fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
-                        times,
-                        num_spins,
-                        splitting,
-                        coupling,
-                        decay_res,
-                        decay_spin,
-                        get_initial_state[state_key](num_spins),
-                    )
-                    np.savetxt(file_QFI, fisher_vals)
-                    np.savetxt(file_QFI_SA, scaled_fisher_vals)
+        for num_spins in num_spin_vals:
+            initial_state = get_initial_state[state_key](num_spins)
+
+            for kk, decay_res in enumerate(decay_res_vals):
+                for gg, decay_spin in enumerate(decay_spin_vals):
+
+                    args = (state_key, num_spins, decay_res, decay_spin)
+                    file_QFI = get_file_path(data_dir, "fisher", *args)
+                    file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
+
+                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI):
+                        if status_updates:
+                            kk_status = f"{kk}/{len(decay_res_vals)}"
+                            gg_status = f"{gg}/{len(decay_spin_vals)}"
+                            print(num_spins, kk_status, gg_status)
+
+                        job_args = (
+                            times,
+                            num_spins,
+                            decay_res,
+                            decay_spin,
+                            splitting,
+                            coupling,
+                            initial_state,
+                            file_QFI,
+                            file_QFI_SA,
+                        )
+                        results.append(pool.apply_async(compute_fisher_vals, args=job_args))
+
+        [result.get() for result in results]
 
 
 def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
@@ -81,7 +120,6 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--coupling", type=float, default=0.04)  # eV
     parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
     parser.add_argument("--time_points", type=int, default=101)
-    parser.add_argument("--recompute", action="store_true", default=False)
 
     # default directories
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -89,6 +127,10 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--data_dir", type=str, default=default_data_dir)
     default_fig_dir = os.path.join(script_dir, "figures")
     parser.add_argument("--fig_dir", type=str, default=default_fig_dir)
+
+    # miscellaneous arguments
+    parser.add_argument("--num_jobs", type=int, default=1)
+    parser.add_argument("--recompute", action="store_true", default=False)
 
     args = parser.parse_args(sys_argv[1:])
 
@@ -106,7 +148,7 @@ if __name__ == "__main__":
 
     args = get_simulation_args(sys.argv)
     times = np.linspace(0, args.max_time, args.time_points)
-    compute_fisher_vals(
+    batch_compute_fisher_vals(
         times,
         args.num_spins,
         args.decay_res,
@@ -115,6 +157,7 @@ if __name__ == "__main__":
         args.coupling,
         args.state_key,
         args.data_dir,
-        recompute=args.recompute,
+        args.num_jobs,
+        args.recompute,
         status_updates=True,
     )
