@@ -89,9 +89,13 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--fig_dir", type=str, default=default_fig_dir)
 
     args = parser.parse_args(sys_argv[1:])
-    hartree_per_eV = 27.2114
-    autime = 2.41888e-17
-    args.max_time *= 1e-15 / (autime * hartree_per_eV)
+
+    # convert time units into hbar/eV
+    femptosecond = 1e-15  # seconds
+    hbar_over_hartree = 2.41888e-17  # seconds
+    hartree_over_eV = 27.2114  # dimensionless
+    hbar_over_eV = hbar_over_hartree * hartree_over_eV  # hbar/eV
+    args.max_time *= femptosecond / hbar_over_eV
 
     return args
 
