@@ -31,36 +31,85 @@ def first_local_maximum(vals: np.ndarray) -> float:
     return vals[-1]
 
 
-def compute_exponents(
+def get_all_data(
     state_key: str,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
     data_dir: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    grid_shape = (len(decay_res_vals), len(decay_spin_vals))
-    max_fisher_exps = np.zeros(grid_shape)
-    scaled_max_fisher_exps = np.zeros(grid_shape)
+    """Retrieve all simulated QFI and SA-QFI data.
+    Results are organized into arrays indexed by [spin_num, decay_res, decay_spin, time].
+    """
+    shape = (len(num_spin_vals), len(decay_res_vals), len(decay_spin_vals))
+    vals_QFI = np.zeros(shape, dtype=object)
+    vals_QFI_SA = np.zeros(shape, dtype=object)
 
-    for kk, decay_res in enumerate(decay_res_vals):
-        for gg, decay_spin in enumerate(decay_spin_vals):
-            max_QFI = []
-            max_QFI_SA = []
-
-            for num_spins in num_spin_vals:
+    for nn, num_spins in enumerate(num_spin_vals):
+        for kk, decay_res in enumerate(decay_res_vals):
+            for gg, decay_spin in enumerate(decay_spin_vals):
                 args = (state_key, num_spins, decay_res, decay_spin)
                 file_QFI = get_file_path(data_dir, "fisher", *args)
                 file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
-                fisher_vals = np.loadtxt(file_QFI)
-                scaled_fisher_vals = np.loadtxt(file_QFI_SA)
+                vals_QFI[nn, kk, gg] = np.loadtxt(file_QFI)
+                vals_QFI_SA[nn, kk, gg] = np.loadtxt(file_QFI_SA)
 
-                max_QFI.append(first_local_maximum(fisher_vals))
-                max_QFI_SA.append(first_local_maximum(scaled_fisher_vals))
+    vals_QFI = np.concatenate(vals_QFI.flatten()).reshape(shape + (-1,))
+    vals_QFI_SA = np.concatenate(vals_QFI_SA.flatten()).reshape(shape + (-1,))
+    return vals_QFI, vals_QFI_SA
 
-            max_fisher_exps[kk, gg] = get_fit_exponent(num_spin_vals, max_QFI)
-            scaled_max_fisher_exps[kk, gg] = get_fit_exponent(num_spin_vals, max_QFI_SA)
 
-    return max_fisher_exps, scaled_max_fisher_exps
+def get_first_maxima(
+    state_key: str,
+    num_spin_vals: Sequence[int],
+    decay_res_vals: Sequence[float],
+    decay_spin_vals: Sequence[float],
+    data_dir: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get the first maxima from all QFI and SA-QFI data.
+    Results are organized into arrays indexed by [spin_num, decay_res, decay_spin].
+    """
+    vals_QFI, vals_QFI_SA = get_all_data(
+        state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
+    )
+
+    def extract_first_maximum(time_series_vals: np.ndarray) -> np.ndarray:
+        maxima_vals = [
+            first_local_maximum(time_series_vals[nn, kk, gg, :])
+            for nn in range(len(num_spin_vals))
+            for kk in range(len(decay_res_vals))
+            for gg in range(len(decay_spin_vals))
+        ]
+        shape = (len(num_spin_vals), len(decay_res_vals), len(decay_spin_vals))
+        return np.array(maxima_vals).reshape(shape)
+
+    return extract_first_maximum(vals_QFI), extract_first_maximum(vals_QFI_SA)
+
+
+def get_exponents(
+    state_key: str,
+    num_spin_vals: Sequence[int],
+    decay_res_vals: Sequence[float],
+    decay_spin_vals: Sequence[float],
+    data_dir: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get the scaling of QFI and SA-QFI with spin number.
+    Results are organized into arrays indexed by [decay_res, decay_spin].
+    """
+    vals_QFI, vals_QFI_SA = get_first_maxima(
+        state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
+    )
+
+    def extract_exponents(maxima_vals: np.ndarray) -> np.ndarray:
+        exponent_vals = [
+            get_fit_exponent(num_spin_vals, tuple(maxima_vals[:, kk, gg]))
+            for kk in range(len(decay_res_vals))
+            for gg in range(len(decay_spin_vals))
+        ]
+        shape = (len(decay_res_vals), len(decay_spin_vals))
+        return np.array(exponent_vals).reshape(shape)
+
+    return extract_exponents(vals_QFI), extract_exponents(vals_QFI_SA)
 
 
 if __name__ == "__main__":
@@ -68,7 +117,7 @@ if __name__ == "__main__":
     os.makedirs(args.fig_dir, exist_ok=True)
 
     for state_key in args.state_keys:
-        max_fisher_exps, scaled_max_fisher_exps = compute_exponents(
+        max_fisher_exps, scaled_max_fisher_exps = get_exponents(
             state_key,
             args.num_spins,
             args.decay_res,
