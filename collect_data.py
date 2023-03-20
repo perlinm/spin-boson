@@ -35,8 +35,8 @@ gamma_vals = np.array([0.01, 0.02, 0.04, 0.08, 0.12, 0.16, 0.20, 0.24])
 
 get_initial_state = {
     "ghz": methods.get_ghz_state,
-    "dicke_1": lambda num_spins: methods.get_dicke_state(num_spins, 1),
-    "dicke_2": lambda num_spins: methods.get_dicke_state(num_spins, 2),
+    "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1),
+    "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2),
 }
 
 
