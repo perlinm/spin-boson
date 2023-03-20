@@ -2,7 +2,6 @@ import numpy as np
 import qutip
 import scipy
 
-
 DEFAULT_TOLERANCE = 1e-8
 DEFAULT_STEP = 1e-6
 
