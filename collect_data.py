@@ -81,7 +81,7 @@ def batch_compute_fisher_vals(
                     file_QFI = get_file_path(data_dir, "fisher", *args)
                     file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
 
-                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI):
+                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA):
                         if status_updates:
                             kk_status = f"{kk}/{len(decay_res_vals)}"
                             gg_status = f"{gg}/{len(decay_spin_vals)}"

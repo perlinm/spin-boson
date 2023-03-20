@@ -86,10 +86,6 @@ def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qu
     return ops
 
 
-def get_expectation_ops(num_spins: int) -> list[qutip.Qobj]:
-    return [act_on(qutip.num(2), ss, num_spins) for ss in range(num_spins)]
-
-
 ################################################################################
 # Fisher info calculation
 
@@ -115,18 +111,16 @@ def get_fisher_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     rel_diff_step: float = DEFAULT_STEP,
-    options: qutip.Options = qutip.Options(store_states=True),
+    options: qutip.Options = qutip.Options(),
 ):
     diff_step = coupling * rel_diff_step if coupling else rel_diff_step
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
-    expect_ops = get_expectation_ops(num_spins)
 
     result = qutip.mesolve(
         get_hamiltonian(splitting, coupling, num_spins),
         initial_state,
         times,
         jump_ops,
-        expect_ops,
         options=options,
     )
     result_displaced = qutip.mesolve(
@@ -134,7 +128,6 @@ def get_fisher_vals(
         initial_state,
         times,
         jump_ops,
-        expect_ops,
         options=options,
     )
 
