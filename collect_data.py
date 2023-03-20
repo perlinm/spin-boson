@@ -40,7 +40,11 @@ def compute_fisher_vals(
     initial_state: np.ndarray,
     file_QFI: str,
     file_QFI_SA: str,
+    status_update: bool = False,
 ) -> None:
+    if status_update:
+        print(os.path.relpath(file_QFI))
+        sys.stdout.flush()
     fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
         times,
         num_spins,
@@ -65,6 +69,7 @@ def batch_compute_fisher_vals(
     data_dir: str,
     num_jobs: int = 1,
     recompute: bool = False,
+    status_update: bool = False,
 ) -> None:
     for state_key in state_keys:
         os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
@@ -92,6 +97,7 @@ def batch_compute_fisher_vals(
                     initial_state,
                     file_QFI,
                     file_QFI_SA,
+                    status_update,
                 )
                 results.append(pool.apply_async(compute_fisher_vals, args=job_args))
 
@@ -158,6 +164,7 @@ if __name__ == "__main__":
         args.data_dir,
         args.num_jobs,
         args.recompute,
+        status_update=True,
     )
 
     print("DONE")
