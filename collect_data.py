@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import itertools
 import multiprocessing
 import os
 import sys
+import time
 from typing import Sequence
 
 import numpy as np
@@ -59,40 +61,39 @@ def batch_compute_fisher_vals(
     decay_spin_vals: Sequence[float],
     splitting: float,
     coupling: float,
-    state_key: str,
+    state_keys: Sequence[str],
     data_dir: str,
     num_jobs: int = 1,
     recompute: bool = False,
 ) -> None:
-    os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
+    for state_key in state_keys:
+        os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
 
     processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
     with multiprocessing.Pool(processes=processes) as pool:
         results = []
 
-        for num_spins in num_spin_vals:
-            initial_state = get_initial_state[state_key](num_spins)
+        for num_spins, decay_res, decay_spin, state_key in itertools.product(
+            num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
+        ):
+            args = (state_key, num_spins, decay_res, decay_spin)
+            file_QFI = get_file_path(data_dir, "fisher", *args)
+            file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
 
-            for kk, decay_res in enumerate(decay_res_vals):
-                for gg, decay_spin in enumerate(decay_spin_vals):
-
-                    args = (state_key, num_spins, decay_res, decay_spin)
-                    file_QFI = get_file_path(data_dir, "fisher", *args)
-                    file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
-
-                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA) or recompute:
-                        job_args = (
-                            times,
-                            num_spins,
-                            decay_res,
-                            decay_spin,
-                            splitting,
-                            coupling,
-                            initial_state,
-                            file_QFI,
-                            file_QFI_SA,
-                        )
-                        results.append(pool.apply_async(compute_fisher_vals, args=job_args))
+            if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA) or recompute:
+                initial_state = get_initial_state[state_key](num_spins)
+                job_args = (
+                    times,
+                    num_spins,
+                    decay_res,
+                    decay_spin,
+                    splitting,
+                    coupling,
+                    initial_state,
+                    file_QFI,
+                    file_QFI_SA,
+                )
+                results.append(pool.apply_async(compute_fisher_vals, args=job_args))
 
         [result.get() for result in results]
 
@@ -107,7 +108,9 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--num_spins", type=int, nargs="+", required=True)
     parser.add_argument("--decay_res", type=float, nargs="+", required=True)
     parser.add_argument("--decay_spin", type=float, nargs="+", required=True)
-    parser.add_argument("--state_key", type=str, choices=get_initial_state.keys(), required=True)
+    parser.add_argument(
+        "--state_keys", type=str, nargs="+", choices=get_initial_state.keys(), required=True
+    )
 
     # default physical parameters
     parser.add_argument("--splitting", type=float, default=0)  # eV
@@ -140,6 +143,8 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
 
 if __name__ == "__main__":
 
+    start = time.time()
+
     args = get_simulation_args(sys.argv)
     times = np.linspace(0, args.max_time, args.time_points)
     batch_compute_fisher_vals(
@@ -149,8 +154,11 @@ if __name__ == "__main__":
         args.decay_spin,
         args.splitting,
         args.coupling,
-        args.state_key,
+        args.state_keys,
         args.data_dir,
         args.num_jobs,
         args.recompute,
     )
+
+    print("DONE")
+    print(time.time() - start)
