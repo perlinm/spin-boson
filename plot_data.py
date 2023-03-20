@@ -117,7 +117,7 @@ if __name__ == "__main__":
     os.makedirs(args.fig_dir, exist_ok=True)
 
     for state_key in args.state_keys:
-        max_fisher_exps, scaled_max_fisher_exps = get_exponents(
+        vals_QFI, vals_QFI_SA = get_exponents(
             state_key,
             args.num_spins,
             args.decay_res,
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         color_mesh = ax.pcolormesh(
             args.decay_res,
             args.decay_spin,
-            scaled_max_fisher_exps.T,
+            vals_QFI_SA.T,
         )
         fig.colorbar(color_mesh, label="scaling")
         ax.set_xlabel(r"$\kappa$")
