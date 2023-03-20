@@ -63,7 +63,6 @@ def batch_compute_fisher_vals(
     data_dir: str,
     num_jobs: int = 1,
     recompute: bool = False,
-    status_updates: bool = False,
 ) -> None:
     os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
 
@@ -81,12 +80,7 @@ def batch_compute_fisher_vals(
                     file_QFI = get_file_path(data_dir, "fisher", *args)
                     file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
 
-                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA):
-                        if status_updates:
-                            kk_status = f"{kk}/{len(decay_res_vals)}"
-                            gg_status = f"{gg}/{len(decay_spin_vals)}"
-                            print(num_spins, kk_status, gg_status)
-
+                    if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA) or recompute:
                         job_args = (
                             times,
                             num_spins,
@@ -159,5 +153,4 @@ if __name__ == "__main__":
         args.data_dir,
         args.num_jobs,
         args.recompute,
-        status_updates=True,
     )
