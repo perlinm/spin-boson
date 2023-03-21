@@ -1,10 +1,11 @@
+import functools
 import numpy as np
 import qutip
 import scipy
 
+DEFAULT_INTEGRATION_METHOD = "RK45"
 DEFAULT_TOLERANCE = 1e-12
-DEFAULT_STEP = 1e-4
-
+DEFAULT_DIFF_STEP = 1e-5
 
 ################################################################################
 # operator definitions
@@ -48,14 +49,6 @@ def resonator_num_op(num_spins: int) -> qutip.Qobj:
     return act_on_resonator(qutip.num(num_spins + 1), num_spins)
 
 
-def get_hamiltonian(splitting: float, coupling: float, num_spins: int) -> qutip.Qobj:
-    spin_term = splitting * collective_Sz(num_spins)
-    resonator_term = splitting * resonator_num_op(num_spins)
-    coupling_op = resonator_lower(num_spins) * collective_raise(num_spins)
-    coupling_term = coupling * (coupling_op + coupling_op.dag())
-    return spin_term + resonator_term + coupling_term
-
-
 ################################################################################
 # state definitions
 
@@ -77,7 +70,15 @@ def get_ghz_state(num_spins: int) -> qutip.Qobj:
 
 
 ################################################################################
-# miscellaneous simulation options
+# generic simulation methods
+
+
+def get_hamiltonian(num_spins: int, splitting: float, coupling: float) -> qutip.Qobj:
+    spin_term = splitting * collective_Sz(num_spins)
+    resonator_term = splitting * resonator_num_op(num_spins)
+    coupling_op = resonator_lower(num_spins) * collective_raise(num_spins)
+    coupling_term = coupling * (coupling_op + coupling_op.dag())
+    return spin_term + resonator_term + coupling_term
 
 
 def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qutip.Qobj]:
@@ -86,16 +87,60 @@ def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qu
     return ops
 
 
+@functools.cache
+def get_identity_matrix(dim: int) -> scipy.sparse.spmatrix:
+    """Construct an idendity matrix of a given dimension."""
+    return scipy.sparse.eye(dim)
+
+
+def to_adjoint_rep(matrix: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
+    """Construct the adjoint representation of a matrix (in the Lie algebra sense)."""
+    iden = get_identity_matrix(matrix.shape[0])
+    return scipy.sparse.kron(matrix, iden) - scipy.sparse.kron(iden, matrix.T)
+
+
+def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
+    """
+    Convert a jump operator 'J' into a generator of time evolution for a density matrix 'rho', such
+    that the generator corresponding to 'J' acts on the vectorized version of 'rho' as
+        J_generator @ rho_vec ~= J rho J^dag + 1/2 [J^dag J, rho]_+,
+    where '[A, B]_+ = A B + B A', and '~=' denotes equality up to reshaping an array.
+    """
+    direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
+    identity = get_identity_matrix(jump_op.shape[0])
+    op_JJ = jump_op.conj().T @ jump_op
+    recycling_term = scipy.sparse.kron(op_JJ, identity) + scipy.sparse.kron(identity, op_JJ.T)
+    return direct_term - recycling_term / 2
+
+
+@functools.cache
+def get_hamiltonian_superop(
+    num_spins: int, splitting: float, coupling: float
+) -> scipy.sparse.spmatrix:
+    return to_adjoint_rep(get_hamiltonian(num_spins, splitting, coupling).data)
+
+
+@functools.cache
+def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> scipy.sparse.spmatrix:
+    return sum(
+        to_dissipation_generator(jump_op.data)
+        for jump_op in get_jump_ops(num_spins, decay_res, decay_spin)
+    )
+
+
+def time_deriv(time: float, state: np.ndarray, generator: scipy.sparse.spmatrix) -> np.ndarray:
+    return generator @ state
+
+
 ################################################################################
 # Fisher info calculation
 
 
-def get_QFI(rho: scipy.sparse.spmatrix, rhoprime: scipy.sparse.spmatrix, tol: float = 1e-8):
-    vals, vecs = np.linalg.eigh(rho)
-    rhodg = vecs.conj().T @ np.array(rhoprime.data.todense()) @ vecs
+def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = 1e-8):
+    vals, vecs = np.linalg.eigh(state)
 
     # numerators and denominators
-    nums = 2 * abs(rhodg) ** 2
+    nums = 2 * abs(vecs.conj() @ state_diff @ vecs) ** 2
     dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
     include = ~np.isclose(dens, 0, atol=tol)  # matrix of booleans (True/False)
@@ -103,41 +148,60 @@ def get_QFI(rho: scipy.sparse.spmatrix, rhoprime: scipy.sparse.spmatrix, tol: fl
 
 
 def get_QFI_vals(
-    times: np.ndarray,
+    max_time: float,
     num_spins: int,
     splitting: float,
     coupling: float,
     decay_res: float,
     decay_spin: float,
     initial_state: qutip.Qobj,
-    rel_diff_step: float = DEFAULT_STEP,
-    options: qutip.Options = qutip.Options(atol=DEFAULT_TOLERANCE, rtol=DEFAULT_TOLERANCE),
+    method: str = DEFAULT_INTEGRATION_METHOD,
+    tolerance: float = DEFAULT_TOLERANCE,
+    rel_diff_step: float = DEFAULT_DIFF_STEP,
 ):
+    tolerances = dict(atol=tolerance)
     diff_step = coupling * rel_diff_step if coupling else rel_diff_step
-    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
 
-    result = qutip.mesolve(
-        get_hamiltonian(splitting, coupling, num_spins),
-        initial_state,
-        times,
-        jump_ops,
-        options=options,
+    ham_superop = get_hamiltonian_superop(num_spins, splitting, coupling)
+    ham_superop_disp = get_hamiltonian_superop(num_spins, splitting, coupling + diff_step)
+    jump_superop = get_jump_superop(num_spins, decay_res, decay_spin)
+
+    initial_state_array = initial_state.data.todense()
+    initial_state_matrix = np.outer(initial_state_array, initial_state_array.conj())
+    initial_state_matrix_vec = initial_state_matrix.astype(complex).ravel()
+
+    generator = ham_superop + jump_superop
+    solution = scipy.integrate.solve_ivp(
+        time_deriv,
+        (0, max_time),
+        initial_state_matrix_vec,
+        method=method,
+        args=(generator,),
+        **tolerances,
     )
-    result_displaced = qutip.mesolve(
-        get_hamiltonian(splitting, coupling + diff_step, num_spins),
-        initial_state,
-        times,
-        jump_ops,
-        options=options,
+    times = solution.t
+    states = solution.y.T
+
+    generator_disp = ham_superop_disp + jump_superop
+    solution_disp = scipy.integrate.solve_ivp(
+        time_deriv,
+        (times[0], times[-1]),
+        initial_state_matrix_vec,
+        t_eval=times,
+        method=method,
+        args=(generator_disp,),
+        **tolerances,
     )
+    states_disp = solution_disp.y.T
 
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
+    for tt, (state, state_disp) in enumerate(zip(states, states_disp)):
+        state_diff = (state_disp - state) / diff_step
 
-    for tt, rho in enumerate(result.states):
-        rho_displaced = result_displaced.states[tt]
-        rhoprime = (rho_displaced - rho) / diff_step
-        vals_QFI[tt] = get_QFI(rho, rhoprime)
-        vals_QFI_SA[tt] = np.real(1 - rho[0, 0]) * vals_QFI[tt]
+        state.shape = (2**num_spins * (num_spins + 1),) * 2
+        state_diff.shape = state.shape
+        vals_QFI[tt] = get_QFI(state, state_diff)
+        vals_QFI_SA[tt] = np.real(1 - state[0, 0]) * vals_QFI[tt]
 
     return times, vals_QFI, vals_QFI_SA

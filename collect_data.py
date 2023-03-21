@@ -31,7 +31,7 @@ get_initial_state = {
 
 
 def compute_QFI_vals(
-    times: np.ndarray,
+    max_time: float,
     num_spins: int,
     decay_res: float,
     decay_spin: float,
@@ -39,14 +39,13 @@ def compute_QFI_vals(
     coupling: float,
     initial_state: np.ndarray,
     file_QFI: str,
-    file_QFI_SA: str,
     status_update: bool = False,
 ) -> None:
     if status_update:
         print(os.path.relpath(file_QFI))
         sys.stdout.flush()
     times, vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
-        times,
+        max_time,
         num_spins,
         splitting,
         coupling,
@@ -54,12 +53,11 @@ def compute_QFI_vals(
         decay_spin,
         initial_state,
     )
-    np.savetxt(file_QFI, np.vstack([times, vals_QFI]))
-    np.savetxt(file_QFI_SA, np.vstack([times, vals_QFI_SA]))
+    np.savetxt(file_QFI, np.vstack([times, vals_QFI, vals_QFI_SA]))
 
 
 def batch_compute_QFI_vals(
-    times: np.ndarray,
+    max_time: float,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
@@ -83,12 +81,11 @@ def batch_compute_QFI_vals(
         ):
             args = (state_key, num_spins, decay_res, decay_spin)
             file_QFI = get_file_path(data_dir, "qfi", *args)
-            file_QFI_SA = get_file_path(data_dir, "qfi-SA", *args)
 
-            if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA) or recompute:
+            if not os.path.isfile(file_QFI) or recompute:
                 initial_state = get_initial_state[state_key](num_spins)
                 job_args = (
-                    times,
+                    max_time,
                     num_spins,
                     decay_res,
                     decay_spin,
@@ -96,7 +93,6 @@ def batch_compute_QFI_vals(
                     coupling,
                     initial_state,
                     file_QFI,
-                    file_QFI_SA,
                     status_update,
                 )
                 results.append(pool.apply_async(compute_QFI_vals, args=job_args))
@@ -122,7 +118,6 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--splitting", type=float, default=0)  # eV
     parser.add_argument("--coupling", type=float, default=0.04)  # eV
     parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
-    parser.add_argument("--time_points", type=int, default=1001)
 
     # default directories
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -152,9 +147,8 @@ if __name__ == "__main__":
     start = time.time()
 
     args = get_simulation_args(sys.argv)
-    times = np.linspace(0, args.max_time, args.time_points)
     batch_compute_QFI_vals(
-        times,
+        args.max_time,
         args.num_spins,
         args.decay_res,
         args.decay_spin,
