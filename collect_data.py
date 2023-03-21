@@ -122,7 +122,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--splitting", type=float, default=0)  # eV
     parser.add_argument("--coupling", type=float, default=0.04)  # eV
     parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
-    parser.add_argument("--time_points", type=int, default=101)
+    parser.add_argument("--time_points", type=int, default=1001)
 
     # default directories
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))

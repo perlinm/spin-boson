@@ -111,7 +111,7 @@ def get_fisher_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     rel_diff_step: float = DEFAULT_STEP,
-    options: qutip.Options = qutip.Options(),
+    options: qutip.Options = qutip.Options(atol=1e-12, rtol=1e-12),
 ):
     diff_step = coupling * rel_diff_step if coupling else rel_diff_step
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
