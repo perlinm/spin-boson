@@ -132,7 +132,7 @@ if __name__ == "__main__":
             for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
                 enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
             ):
-                plt.figure()
+                plt.figure(figsize=(4, 3))
                 plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
                 plt.plot(times, vals[nn, kk, gg, :])
                 plt.xlabel("time")
@@ -162,6 +162,6 @@ if __name__ == "__main__":
         ax.set_ylabel(r"$\gamma$")
         plt.tight_layout()
 
-        fig_path = os.path.join(args.fig_dir, f"{state_key}.pdf")
+        fig_path = os.path.join(args.fig_dir, f"{state_key}_scaling.pdf")
         plt.savefig(fig_path)
         plt.close()
