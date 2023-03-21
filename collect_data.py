@@ -72,32 +72,38 @@ def batch_compute_QFI_vals(
     for state_key in state_keys:
         os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
 
-    processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
-    with multiprocessing.Pool(processes=processes) as pool:
+    if num_jobs > 1:
+        processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=processes)
         results = []
 
-        for num_spins, decay_res, decay_spin, state_key in itertools.product(
-            num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
-        ):
-            args = (state_key, num_spins, decay_res, decay_spin)
-            file_QFI = get_file_path(data_dir, "qfi", *args)
+    for num_spins, decay_res, decay_spin, state_key in itertools.product(
+        num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
+    ):
+        args = (state_key, num_spins, decay_res, decay_spin)
+        file_QFI = get_file_path(data_dir, "qfi", *args)
 
-            if not os.path.isfile(file_QFI) or recompute:
-                initial_state = get_initial_state[state_key](num_spins)
-                job_args = (
-                    times,
-                    num_spins,
-                    decay_res,
-                    decay_spin,
-                    splitting,
-                    coupling,
-                    initial_state,
-                    file_QFI,
-                    status_update,
-                )
+        if not os.path.isfile(file_QFI) or recompute:
+            initial_state = get_initial_state[state_key](num_spins)
+            job_args = (
+                times,
+                num_spins,
+                decay_res,
+                decay_spin,
+                splitting,
+                coupling,
+                initial_state,
+                file_QFI,
+                status_update,
+            )
+            if num_jobs > 1:
                 results.append(pool.apply_async(compute_QFI_vals, args=job_args))
+            else:
+                compute_QFI_vals(*job_args)
 
-        [result.get() for result in results]
+    if num_jobs > 1:
+        pool.close()
+        pool.join()
 
 
 def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
