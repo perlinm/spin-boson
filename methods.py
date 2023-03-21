@@ -3,9 +3,10 @@ import numpy as np
 import qutip
 import scipy
 
-DEFAULT_INTEGRATION_METHOD = "RK45"
-DEFAULT_TOLERANCE = 1e-12
-DEFAULT_DIFF_STEP = 1e-5
+DEFAULT_INTEGRATION_METHOD = "DOP853"
+DEFAULT_RTOL = 1e-6
+DEFAULT_ATOL = 1e-10
+DEFAULT_DIFF_STEP = 1e-6
 
 ################################################################################
 # operator definitions
@@ -136,7 +137,7 @@ def time_deriv(time: float, state: np.ndarray, generator: scipy.sparse.spmatrix)
 # Fisher info calculation
 
 
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = 1e-8):
+def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = DEFAULT_ATOL):
     vals, vecs = np.linalg.eigh(state)
 
     # numerators and denominators
@@ -156,20 +157,24 @@ def get_QFI_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     method: str = DEFAULT_INTEGRATION_METHOD,
-    tolerance: float = DEFAULT_TOLERANCE,
-    rel_diff_step: float = DEFAULT_DIFF_STEP,
+    rtol: float = DEFAULT_RTOL,
+    atol: float = DEFAULT_ATOL,
+    diff_step: float = DEFAULT_DIFF_STEP,
 ):
-    tolerances = dict(atol=tolerance)
-    diff_step = coupling * rel_diff_step if coupling else rel_diff_step
+    total_dim = 2**num_spins * (num_spins + 1)
+    tolerances = dict(rtol=rtol, atol=atol)
 
+    # construct hamiltonian and jump superoperators
     ham_superop = get_hamiltonian_superop(num_spins, splitting, coupling)
     ham_superop_disp = get_hamiltonian_superop(num_spins, splitting, coupling + diff_step)
     jump_superop = get_jump_superop(num_spins, decay_res, decay_spin)
 
+    # construct initial state as a vectorized density matrix
     initial_state_array = initial_state.data.todense()
     initial_state_matrix = np.outer(initial_state_array, initial_state_array.conj())
     initial_state_matrix_vec = initial_state_matrix.astype(complex).ravel()
 
+    # time-evolve with ordinary physical parameters
     generator = ham_superop + jump_superop
     solution = scipy.integrate.solve_ivp(
         time_deriv,
@@ -182,6 +187,7 @@ def get_QFI_vals(
     times = solution.t
     states = solution.y.T
 
+    # time-evolve with displaced physical parameters
     generator_disp = ham_superop_disp + jump_superop
     solution_disp = scipy.integrate.solve_ivp(
         time_deriv,
@@ -194,12 +200,13 @@ def get_QFI_vals(
     )
     states_disp = solution_disp.y.T
 
+    # compute the QFI
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
     for tt, (state, state_disp) in enumerate(zip(states, states_disp)):
         state_diff = (state_disp - state) / diff_step
 
-        state.shape = (2**num_spins * (num_spins + 1),) * 2
+        state.shape = (total_dim,) * 2
         state_diff.shape = state.shape
         vals_QFI[tt] = get_QFI(state, state_diff)
         vals_QFI_SA[tt] = np.real(1 - state[0, 0]) * vals_QFI[tt]
