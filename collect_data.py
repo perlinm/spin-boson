@@ -31,7 +31,7 @@ get_initial_state = {
 
 
 def compute_QFI_vals(
-    max_time: float,
+    times: Sequence[float],
     num_spins: int,
     decay_res: float,
     decay_spin: float,
@@ -45,7 +45,7 @@ def compute_QFI_vals(
         print(os.path.relpath(file_QFI))
         sys.stdout.flush()
     times, vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
-        max_time,
+        times,
         num_spins,
         splitting,
         coupling,
@@ -57,7 +57,7 @@ def compute_QFI_vals(
 
 
 def batch_compute_QFI_vals(
-    max_time: float,
+    times: Sequence[float],
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
@@ -85,7 +85,7 @@ def batch_compute_QFI_vals(
             if not os.path.isfile(file_QFI) or recompute:
                 initial_state = get_initial_state[state_key](num_spins)
                 job_args = (
-                    max_time,
+                    times,
                     num_spins,
                     decay_res,
                     decay_spin,
@@ -118,6 +118,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--splitting", type=float, default=0)  # eV
     parser.add_argument("--coupling", type=float, default=0.04)  # eV
     parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
+    parser.add_argument("--time_points", type=int, default=201)
 
     # default directories
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -147,8 +148,9 @@ if __name__ == "__main__":
     start = time.time()
 
     args = get_simulation_args(sys.argv)
+    times = np.linspace(0, args.max_time, args.time_points)
     batch_compute_QFI_vals(
-        args.max_time,
+        times,
         args.num_spins,
         args.decay_res,
         args.decay_spin,

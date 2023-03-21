@@ -63,9 +63,7 @@ def get_maxima(
     """Maximize QFI and SA-QFI data over simulation time.
     Results are organized into arrays indexed by key = (spin_num, decay_res, decay_spin).
     """
-    vals_QFI = get_all_data(
-        state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
-    )
+    vals_QFI = get_all_data(state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir)
     return extract_maxima(vals_QFI)
 
 
@@ -89,9 +87,7 @@ def get_exponents(
     """Get the scaling of QFI and SA-QFI with spin number.
     Results are organized into arrays indexed by [decay_res, decay_spin].
     """
-    vals_max = get_maxima(
-        state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
-    )
+    vals_max = get_maxima(state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir)
     return extract_exponents(num_spin_vals, vals_max)
 
 

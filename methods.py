@@ -1,12 +1,13 @@
 import functools
+from typing import Sequence
+
 import numpy as np
 import qutip
 import scipy
 
-DEFAULT_INTEGRATION_METHOD = "DOP853"
-DEFAULT_RTOL = 1e-6
+DEFAULT_INTEGRATION_METHOD = "RK45"
 DEFAULT_ATOL = 1e-10
-DEFAULT_DIFF_STEP = 1e-6
+DEFAULT_DIFF_STEP = 1e-5
 
 ################################################################################
 # operator definitions
@@ -149,7 +150,7 @@ def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = DEFAULT_ATOL
 
 
 def get_QFI_vals(
-    max_time: float,
+    times: Sequence[float],
     num_spins: int,
     splitting: float,
     coupling: float,
@@ -157,12 +158,11 @@ def get_QFI_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     method: str = DEFAULT_INTEGRATION_METHOD,
-    rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ):
     total_dim = 2**num_spins * (num_spins + 1)
-    tolerances = dict(rtol=rtol, atol=atol)
+    tolerances = dict(atol=atol)
 
     # construct hamiltonian and jump superoperators
     ham_superop = get_hamiltonian_superop(num_spins, splitting, coupling)
@@ -178,13 +178,13 @@ def get_QFI_vals(
     generator = ham_superop + jump_superop
     solution = scipy.integrate.solve_ivp(
         time_deriv,
-        (0, max_time),
+        (times[0], times[-1]),
         initial_state_matrix_vec,
+        t_eval=times,
         method=method,
         args=(generator,),
         **tolerances,
     )
-    times = solution.t
     states = solution.y.T
 
     # time-evolve with displaced physical parameters
