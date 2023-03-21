@@ -15,7 +15,7 @@ def poly_func(x: float, a: float, b: float, c: float) -> float:
     return a * x**b + c
 
 
-def get_fit_exponent(x_vals: Sequence[float | int], y_vals: Sequence[float | int]) -> float:
+def get_fit_exponent(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
     popt, _ = scipy.optimize.curve_fit(
         poly_func,
         x_vals,
@@ -43,14 +43,17 @@ def get_all_data(
         for kk, decay_res in enumerate(decay_res_vals):
             for gg, decay_spin in enumerate(decay_spin_vals):
                 args = (state_key, num_spins, decay_res, decay_spin)
-                file_QFI = get_file_path(data_dir, "fisher", *args)
-                file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
+                file_QFI = get_file_path(data_dir, "qfi", *args)
+                file_QFI_SA = get_file_path(data_dir, "qfi-SA", *args)
                 vals_QFI[nn, kk, gg] = np.loadtxt(file_QFI)
                 vals_QFI_SA[nn, kk, gg] = np.loadtxt(file_QFI_SA)
 
-    vals_QFI = np.concatenate(vals_QFI.flatten()).reshape(shape + (-1,))
-    vals_QFI_SA = np.concatenate(vals_QFI_SA.flatten()).reshape(shape + (-1,))
     return vals_QFI, vals_QFI_SA
+
+
+def extract_maxima(vals: np.ndarray) -> np.ndarray:
+    maxima_vals = [vals[idx][1].max() for idx in np.ndindex(vals.shape)]
+    return np.array(maxima_vals).reshape(vals.shape)
 
 
 def get_maxima(
@@ -66,7 +69,16 @@ def get_maxima(
     vals_QFI, vals_QFI_SA = get_all_data(
         state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
     )
-    return vals_QFI.max(axis=-1), vals_QFI_SA.max(axis=-1)
+    return extract_maxima(vals_QFI), extract_maxima(vals_QFI_SA)
+
+
+def extract_exponents(num_spin_vals: Sequence[int], maxima_vals: np.ndarray) -> np.ndarray:
+    exponent_vals = [
+        get_fit_exponent(num_spin_vals, tuple(maxima_vals[:, kk, gg]))
+        for kk in range(maxima_vals.shape[1])
+        for gg in range(maxima_vals.shape[2])
+    ]
+    return np.array(exponent_vals).reshape(maxima_vals.shape[1:])
 
 
 def get_exponents(
@@ -82,17 +94,7 @@ def get_exponents(
     vals_QFI, vals_QFI_SA = get_maxima(
         state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
     )
-
-    def extract_exponents(maxima_vals: np.ndarray) -> np.ndarray:
-        exponent_vals = [
-            get_fit_exponent(num_spin_vals, tuple(maxima_vals[:, kk, gg]))
-            for kk in range(len(decay_res_vals))
-            for gg in range(len(decay_spin_vals))
-        ]
-        shape = (len(decay_res_vals), len(decay_spin_vals))
-        return np.array(exponent_vals).reshape(shape)
-
-    return extract_exponents(vals_QFI), extract_exponents(vals_QFI_SA)
+    return extract_exponents(num_spin_vals, vals_QFI), extract_exponents(num_spin_vals, vals_QFI_SA)
 
 
 if __name__ == "__main__":
@@ -109,41 +111,54 @@ if __name__ == "__main__":
             args.decay_spin,
             args.data_dir,
         )
-        times = np.linspace(0, args.max_time, args.time_points)
-        for vals, tag in [(vals_QFI, "qfi"), (vals_QFI_SA, "sa-qfi")]:
-            for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
-                enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
-            ):
-                plt.figure(figsize=(4, 3))
-                plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
-                plt.plot(times, vals[nn, kk, gg, :])
-                plt.xlabel("time")
-                plt.xlabel(tag.upper())
-                plt.tight_layout()
+        for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
+            enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
+        ):
+            plt.figure(figsize=(4, 3))
+            plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
+            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
+            plt.plot(vals_QFI_SA[nn, kk, gg][0], vals_QFI_SA[nn, kk, gg][1], "k--")
+            plt.xlabel("time")
+            plt.ylabel("QFI [1/eV$^2$]")
+            plt.tight_layout()
 
-                fig_name = f"{tag}_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"
-                plt.savefig(os.path.join(args.fig_dir, fig_name))
-                plt.close()
+            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"
+            plt.savefig(os.path.join(args.fig_dir, fig_name))
+            plt.close()
+
+        # plot scaling data
+        vals_QFI = extract_maxima(vals_QFI)
+        vals_QFI_SA = extract_maxima(vals_QFI_SA)
+        for (kk, kappa), (gg, gamma) in itertools.product(
+            enumerate(args.decay_res), enumerate(args.decay_spin)
+        ):
+            plt.figure(figsize=(4, 3))
+            plt.title(rf"$\kappa={kappa}$, $\gamma={gamma}$")
+            plt.plot(args.num_spins, vals_QFI[:, kk, gg], "ko")
+            plt.plot(args.num_spins, vals_QFI_SA[:, kk, gg], "bo")
+            plt.xlabel("$N$")
+            plt.ylabel("QFI [1/eV$^2$]")
+            plt.tight_layout()
+
+            fig_name = f"qfi_{state_key}_k{kappa:.4f}_g{gamma:.4f}.pdf"
+            plt.savefig(os.path.join(args.fig_dir, fig_name))
+            plt.close()
 
         # plot exponents
-        vals_QFI, vals_QFI_SA = get_exponents(
-            state_key,
-            args.num_spins,
-            args.decay_res,
-            args.decay_spin,
-            args.data_dir,
-        )
-        fig, ax = plt.subplots(figsize=(4, 3))
-        color_mesh = ax.pcolormesh(
-            args.decay_res,
-            args.decay_spin,
-            vals_QFI_SA.T,
-        )
-        fig.colorbar(color_mesh, label="scaling")
-        ax.set_xlabel(r"$\kappa$")
-        ax.set_ylabel(r"$\gamma$")
-        plt.tight_layout()
+        vals_QFI = extract_exponents(args.num_spins, vals_QFI)
+        vals_QFI_SA = extract_exponents(args.num_spins, vals_QFI_SA)
+        for vals, tag in [(vals_QFI, "qfi"), (vals_QFI_SA, "qfi-SA")]:
+            fig, ax = plt.subplots(figsize=(4, 3))
+            color_mesh = ax.pcolormesh(
+                args.decay_res,
+                args.decay_spin,
+                vals_QFI_SA.T,
+            )
+            fig.colorbar(color_mesh, label="scaling")
+            ax.set_xlabel(r"$\kappa$ [eV]")
+            ax.set_ylabel(r"$\gamma$ [eV]")
+            plt.tight_layout()
 
-        fig_path = os.path.join(args.fig_dir, f"{state_key}_scaling.pdf")
-        plt.savefig(fig_path)
-        plt.close()
+            fig_path = os.path.join(args.fig_dir, f"{tag}_{state_key}.pdf")
+            plt.savefig(fig_path)
+            plt.close()

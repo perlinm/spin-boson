@@ -2,8 +2,8 @@ import numpy as np
 import qutip
 import scipy
 
-DEFAULT_TOLERANCE = 1e-8
-DEFAULT_STEP = 1e-6
+DEFAULT_TOLERANCE = 1e-12
+DEFAULT_STEP = 1e-4
 
 
 ################################################################################
@@ -90,7 +90,7 @@ def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qu
 # Fisher info calculation
 
 
-def get_fisher_info(rho: scipy.sparse.spmatrix, rhoprime: scipy.sparse.spmatrix, tol: float = 1e-8):
+def get_QFI(rho: scipy.sparse.spmatrix, rhoprime: scipy.sparse.spmatrix, tol: float = 1e-8):
     vals, vecs = np.linalg.eigh(rho)
     rhodg = vecs.conj().T @ np.array(rhoprime.data.todense()) @ vecs
 
@@ -102,7 +102,7 @@ def get_fisher_info(rho: scipy.sparse.spmatrix, rhoprime: scipy.sparse.spmatrix,
     return (nums[include] / dens[include]).sum()
 
 
-def get_fisher_vals(
+def get_QFI_vals(
     times: np.ndarray,
     num_spins: int,
     splitting: float,
@@ -111,7 +111,7 @@ def get_fisher_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     rel_diff_step: float = DEFAULT_STEP,
-    options: qutip.Options = qutip.Options(atol=1e-12, rtol=1e-12),
+    options: qutip.Options = qutip.Options(atol=DEFAULT_TOLERANCE, rtol=DEFAULT_TOLERANCE),
 ):
     diff_step = coupling * rel_diff_step if coupling else rel_diff_step
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
@@ -131,13 +131,13 @@ def get_fisher_vals(
         options=options,
     )
 
-    fisher_vals = np.zeros(len(times))
-    scaled_fisher_vals = np.zeros(len(times))
+    vals_QFI = np.zeros(len(times))
+    vals_QFI_SA = np.zeros(len(times))
 
     for tt, rho in enumerate(result.states):
         rho_displaced = result_displaced.states[tt]
         rhoprime = (rho_displaced - rho) / diff_step
-        fisher_vals[tt] = get_fisher_info(rho, rhoprime)
-        scaled_fisher_vals[tt] = np.real(1 - rho[0, 0]) * fisher_vals[tt]
+        vals_QFI[tt] = get_QFI(rho, rhoprime)
+        vals_QFI_SA[tt] = np.real(1 - rho[0, 0]) * vals_QFI[tt]
 
-    return fisher_vals, scaled_fisher_vals
+    return times, vals_QFI, vals_QFI_SA

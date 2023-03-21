@@ -30,7 +30,7 @@ get_initial_state = {
 }
 
 
-def compute_fisher_vals(
+def compute_QFI_vals(
     times: np.ndarray,
     num_spins: int,
     decay_res: float,
@@ -45,7 +45,7 @@ def compute_fisher_vals(
     if status_update:
         print(os.path.relpath(file_QFI))
         sys.stdout.flush()
-    fisher_vals, scaled_fisher_vals = methods.get_fisher_vals(
+    times, vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
         times,
         num_spins,
         splitting,
@@ -54,11 +54,11 @@ def compute_fisher_vals(
         decay_spin,
         initial_state,
     )
-    np.savetxt(file_QFI, fisher_vals)
-    np.savetxt(file_QFI_SA, scaled_fisher_vals)
+    np.savetxt(file_QFI, np.vstack([times, vals_QFI]))
+    np.savetxt(file_QFI_SA, np.vstack([times, vals_QFI_SA]))
 
 
-def batch_compute_fisher_vals(
+def batch_compute_QFI_vals(
     times: np.ndarray,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
@@ -82,8 +82,8 @@ def batch_compute_fisher_vals(
             num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
         ):
             args = (state_key, num_spins, decay_res, decay_spin)
-            file_QFI = get_file_path(data_dir, "fisher", *args)
-            file_QFI_SA = get_file_path(data_dir, "fisher-SA", *args)
+            file_QFI = get_file_path(data_dir, "qfi", *args)
+            file_QFI_SA = get_file_path(data_dir, "qfi-SA", *args)
 
             if not os.path.isfile(file_QFI) or not os.path.isfile(file_QFI_SA) or recompute:
                 initial_state = get_initial_state[state_key](num_spins)
@@ -99,7 +99,7 @@ def batch_compute_fisher_vals(
                     file_QFI_SA,
                     status_update,
                 )
-                results.append(pool.apply_async(compute_fisher_vals, args=job_args))
+                results.append(pool.apply_async(compute_QFI_vals, args=job_args))
 
         [result.get() for result in results]
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     args = get_simulation_args(sys.argv)
     times = np.linspace(0, args.max_time, args.time_points)
-    batch_compute_fisher_vals(
+    batch_compute_QFI_vals(
         times,
         args.num_spins,
         args.decay_res,
