@@ -141,7 +141,7 @@ def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = DEFAULT_ATOL
     vals, vecs = np.linalg.eigh(state)
 
     # numerators and denominators
-    nums = 2 * abs(vecs.conj() @ state_diff @ vecs) ** 2
+    nums = 2 * abs(vecs.conj().T @ state_diff @ vecs) ** 2
     dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
     include = ~np.isclose(dens, 0, atol=tol)  # matrix of booleans (True/False)
