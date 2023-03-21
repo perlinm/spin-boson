@@ -6,6 +6,7 @@ import qutip
 import scipy
 
 DEFAULT_INTEGRATION_METHOD = "RK45"
+DEFAULT_RTOL = 1e-10
 DEFAULT_ATOL = 1e-10
 DEFAULT_DIFF_STEP = 1e-5
 
@@ -158,11 +159,12 @@ def get_QFI_vals(
     decay_spin: float,
     initial_state: qutip.Qobj,
     method: str = DEFAULT_INTEGRATION_METHOD,
+    rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ):
     total_dim = 2**num_spins * (num_spins + 1)
-    tolerances = dict(atol=atol)
+    tolerances = dict(rtol=rtol, atol=atol)
 
     # construct hamiltonian and jump superoperators
     ham_superop = get_hamiltonian_superop(num_spins, splitting, coupling)
