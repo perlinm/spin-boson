@@ -25,13 +25,6 @@ def get_fit_exponent(x_vals: Sequence[float | int], y_vals: Sequence[float | int
     return popt[1]
 
 
-def first_local_maximum(vals: np.ndarray) -> float:
-    for val_a, val_b in zip(vals[:-1], vals[1:]):
-        if val_a > val_b:
-            return val_a
-    return vals[-1]
-
-
 def get_all_data(
     state_key: str,
     num_spin_vals: Sequence[int],
@@ -60,31 +53,20 @@ def get_all_data(
     return vals_QFI, vals_QFI_SA
 
 
-def get_first_maxima(
+def get_maxima(
     state_key: str,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
     data_dir: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Get the first maxima from all QFI and SA-QFI data.
+    """Maximize QFI and SA-QFI data over simulation time.
     Results are organized into arrays indexed by [spin_num, decay_res, decay_spin].
     """
     vals_QFI, vals_QFI_SA = get_all_data(
         state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
     )
-
-    def extract_first_maximum(time_series_vals: np.ndarray) -> np.ndarray:
-        maxima_vals = [
-            first_local_maximum(time_series_vals[nn, kk, gg, :])
-            for nn in range(len(num_spin_vals))
-            for kk in range(len(decay_res_vals))
-            for gg in range(len(decay_spin_vals))
-        ]
-        shape = (len(num_spin_vals), len(decay_res_vals), len(decay_spin_vals))
-        return np.array(maxima_vals).reshape(shape)
-
-    return extract_first_maximum(vals_QFI), extract_first_maximum(vals_QFI_SA)
+    return vals_QFI.max(axis=-1), vals_QFI_SA.max(axis=-1)
 
 
 def get_exponents(
@@ -97,7 +79,7 @@ def get_exponents(
     """Get the scaling of QFI and SA-QFI with spin number.
     Results are organized into arrays indexed by [decay_res, decay_spin].
     """
-    vals_QFI, vals_QFI_SA = get_first_maxima(
+    vals_QFI, vals_QFI_SA = get_maxima(
         state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
     )
 
