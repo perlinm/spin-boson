@@ -103,25 +103,23 @@ if __name__ == "__main__":
             args.decay_spin,
             args.data_dir,
         )
+        vals_max = extract_maxima(vals_QFI)
+        vals_exp = extract_exponents(args.num_spins, vals_max)
 
-        # plot time-series data
-        for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
-            enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
-        ):
-            plt.figure(figsize=(4, 3))
-            plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
-            plt.xlabel("time")
-            plt.ylabel("QFI [1/eV$^2$]")
+        print(f"plotting exponents ({state_key})")
+        for vals, tag in [(vals_exp[:, :, 0], "qfi"), (vals_exp[:, :, 1], "qfi-SA")]:
+            fig, ax = plt.subplots(figsize=(4, 3))
+            color_mesh = ax.pcolormesh(args.decay_res, args.decay_spin, vals.T)
+            fig.colorbar(color_mesh, label="scaling")
+            ax.set_xlabel(r"$\kappa$ [eV]")
+            ax.set_ylabel(r"$\gamma$ [eV]")
             plt.tight_layout()
 
-            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"
-            plt.savefig(os.path.join(args.fig_dir, fig_name))
+            fig_path = os.path.join(args.fig_dir, f"{tag}_{state_key}.pdf")
+            plt.savefig(fig_path)
             plt.close()
 
-        # plot scaling data
-        vals_max = extract_maxima(vals_QFI)
+        print(f"plotting system size scaling ({state_key})")
         for (kk, kappa), (gg, gamma) in itertools.product(
             enumerate(args.decay_res), enumerate(args.decay_spin)
         ):
@@ -137,20 +135,18 @@ if __name__ == "__main__":
             plt.savefig(os.path.join(args.fig_dir, fig_name))
             plt.close()
 
-        # plot exponents
-        vals_exp = extract_exponents(args.num_spins, vals_max)
-        for vals, tag in [(vals_exp[:, :, 0], "qfi"), (vals_exp[:, :, 1], "qfi-SA")]:
-            fig, ax = plt.subplots(figsize=(4, 3))
-            color_mesh = ax.pcolormesh(
-                args.decay_res,
-                args.decay_spin,
-                vals.T,
-            )
-            fig.colorbar(color_mesh, label="scaling")
-            ax.set_xlabel(r"$\kappa$ [eV]")
-            ax.set_ylabel(r"$\gamma$ [eV]")
+        print(f"plotting time-series data ({state_key})")
+        for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
+            enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
+        ):
+            plt.figure(figsize=(4, 3))
+            plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
+            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
+            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
+            plt.xlabel("time")
+            plt.ylabel("QFI [1/eV$^2$]")
             plt.tight_layout()
 
-            fig_path = os.path.join(args.fig_dir, f"{tag}_{state_key}.pdf")
-            plt.savefig(fig_path)
+            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"
+            plt.savefig(os.path.join(args.fig_dir, fig_name))
             plt.close()
