@@ -145,7 +145,7 @@ if __name__ == "__main__":
             plt.title(rf"$N={num_spins}$, $\kappa/g={kappa}$, $\gamma/g={gamma}$")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
-            plt.xlabel(r"time $\times g^{-1}$")
+            plt.xlabel(r"time $\times g$")
             plt.ylabel(r"QFI $\times g^2$")
             plt.tight_layout()
 
