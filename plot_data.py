@@ -95,6 +95,8 @@ if __name__ == "__main__":
     args = get_simulation_args(sys.argv)
     os.makedirs(args.fig_dir, exist_ok=True)
 
+    figsize = (4, 3)
+
     for state_key in args.state_keys:
         vals_QFI = get_all_data(
             state_key,
@@ -108,7 +110,7 @@ if __name__ == "__main__":
 
         print(f"plotting exponents ({state_key})")
         for vals, tag in [(vals_exp[:, :, 0], "qfi"), (vals_exp[:, :, 1], "qfi-SA")]:
-            fig, ax = plt.subplots(figsize=(4, 3))
+            fig, ax = plt.subplots(figsize=figsize)
             color_mesh = ax.pcolormesh(args.decay_res, args.decay_spin, vals.T)
             fig.colorbar(color_mesh, label="scaling")
             ax.set_xlabel(r"$\kappa/g$")
@@ -123,15 +125,15 @@ if __name__ == "__main__":
         for (kk, kappa), (gg, gamma) in itertools.product(
             enumerate(args.decay_res), enumerate(args.decay_spin)
         ):
-            plt.figure(figsize=(4, 3))
-            plt.title(rf"$\kappa={kappa}$, $\gamma={gamma}$")
+            plt.figure(figsize=figsize)
+            plt.title(rf"$\kappa/g={kappa}$, $\gamma/g={gamma}$")
             plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko")
             plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo")
             plt.xlabel("$N$")
-            plt.ylabel(r"$g^2\times$ QFI ")
+            plt.ylabel(r"QFI $\times g^2$")
             plt.tight_layout()
 
-            fig_name = f"qfi_{state_key}_k{kappa:.4f}_g{gamma:.4f}.pdf"
+            fig_name = f"qfi_{state_key}_k{kappa:.2f}_g{gamma:.2f}.pdf"
             plt.savefig(os.path.join(args.fig_dir, fig_name))
             plt.close()
 
@@ -139,14 +141,14 @@ if __name__ == "__main__":
         for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
             enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
         ):
-            plt.figure(figsize=(4, 3))
-            plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
+            plt.figure(figsize=figsize)
+            plt.title(rf"$N={num_spins}$, $\kappa/g={kappa}$, $\gamma/g={gamma}$")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
-            plt.xlabel(r"time [$g^{-1}$]")
-            plt.ylabel(r"$g^2\times$ QFI ")
+            plt.xlabel(r"time $\times g^{-1}$")
+            plt.ylabel(r"QFI $\times g^2$")
             plt.tight_layout()
 
-            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"
+            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.2f}_g{gamma:.2f}.pdf"
             plt.savefig(os.path.join(args.fig_dir, fig_name))
             plt.close()
