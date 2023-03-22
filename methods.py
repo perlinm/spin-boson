@@ -6,8 +6,8 @@ import qutip
 import scipy
 
 DEFAULT_INTEGRATION_METHOD = "qutip"
-DEFAULT_RTOL = 1e-10
-DEFAULT_ATOL = 1e-10
+DEFAULT_RTOL = 1e-12
+DEFAULT_ATOL = 1e-12
 DEFAULT_DIFF_STEP = 1e-4
 
 ################################################################################

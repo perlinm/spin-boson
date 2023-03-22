@@ -113,17 +113,19 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
         description="Compute QFI and SA-QFI.",
         formatter_class=argparse.MetavarTypeHelpFormatter,
     )
-    parser.add_argument("--num_spins", type=int, nargs="+", required=True)
-    parser.add_argument("--decay_res", type=float, nargs="+", required=True)
-    parser.add_argument("--decay_spin", type=float, nargs="+", required=True)
     parser.add_argument(
         "--state_keys", type=str, nargs="+", choices=get_initial_state.keys(), required=True
     )
+    parser.add_argument("--num_spins", type=int, nargs="+", required=True)
+
+    parser.add_argument("--decay", type=float, nargs="+")
+    parser.add_argument("--decay_res", type=float, nargs="+")
+    parser.add_argument("--decay_spin", type=float, nargs="+")
 
     # default physical parameters
     parser.add_argument("--coupling", type=float, default=1)
     parser.add_argument("--splitting", type=float, default=0)
-    parser.add_argument("--max_time", type=float, default=1000)
+    parser.add_argument("--max_time", type=float, default=10)
     parser.add_argument("--time_points", type=int, default=201)
 
     # default directories
@@ -137,7 +139,17 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--num_jobs", type=int, default=1)
     parser.add_argument("--recompute", action="store_true", default=False)
 
-    return parser.parse_args(sys_argv[1:])
+    args = parser.parse_args(sys_argv[1:])
+
+    # check decay arguments
+    decay_com = args.decay is not None and args.decay_res is None and args.decay_spin is None
+    decay_sep = args.decay is None and args.decay_res is not None and args.decay_spin is not None
+    if not (decay_com ^ decay_sep):
+        parser.error("provide only --decay, XOR both --decay_res and --decay_spin")
+    if decay_com:
+        args.decay_res = args.decay_spin = args.decay
+
+    return args
 
 
 if __name__ == "__main__":
