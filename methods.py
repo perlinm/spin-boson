@@ -7,8 +7,8 @@ import scipy
 
 DEFAULT_INTEGRATION_METHOD = "qutip"
 DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
-DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
-DEFAULT_ATOL = 1e-10
+DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgeration
+DEFAULT_ATOL = 1e-12
 DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
 
 ################################################################################
