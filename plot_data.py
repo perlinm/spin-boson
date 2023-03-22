@@ -111,8 +111,8 @@ if __name__ == "__main__":
             fig, ax = plt.subplots(figsize=(4, 3))
             color_mesh = ax.pcolormesh(args.decay_res, args.decay_spin, vals.T)
             fig.colorbar(color_mesh, label="scaling")
-            ax.set_xlabel(r"$\kappa$ [eV]")
-            ax.set_ylabel(r"$\gamma$ [eV]")
+            ax.set_xlabel(r"$\kappa/g$")
+            ax.set_ylabel(r"$\gamma/g$")
             plt.tight_layout()
 
             fig_path = os.path.join(args.fig_dir, f"{tag}_{state_key}.pdf")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko")
             plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo")
             plt.xlabel("$N$")
-            plt.ylabel("QFI [1/eV$^2$]")
+            plt.ylabel(r"$g^2\times$ QFI ")
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_k{kappa:.4f}_g{gamma:.4f}.pdf"
@@ -143,8 +143,8 @@ if __name__ == "__main__":
             plt.title(rf"$N={num_spins}$, $\kappa={kappa}$, $\gamma={gamma}$")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
             plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
-            plt.xlabel("time")
-            plt.ylabel("QFI [1/eV$^2$]")
+            plt.xlabel(r"time [$g^{-1}$]")
+            plt.ylabel(r"$g^2\times$ QFI ")
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.4f}_g{gamma:.4f}.pdf"

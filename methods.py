@@ -8,7 +8,7 @@ import scipy
 DEFAULT_INTEGRATION_METHOD = "qutip"
 DEFAULT_RTOL = 1e-10
 DEFAULT_ATOL = 1e-10
-DEFAULT_DIFF_STEP = 1e-5
+DEFAULT_DIFF_STEP = 1e-4
 
 ################################################################################
 # operator definitions
@@ -76,6 +76,7 @@ def get_ghz_state(num_spins: int) -> qutip.Qobj:
 # generic simulation methods
 
 
+@functools.cache
 def get_hamiltonian(num_spins: int, splitting: float, coupling: float) -> qutip.Qobj:
     spin_term = splitting * collective_Sz(num_spins)
     resonator_term = splitting * resonator_num_op(num_spins)
@@ -84,6 +85,7 @@ def get_hamiltonian(num_spins: int, splitting: float, coupling: float) -> qutip.
     return spin_term + resonator_term + coupling_term
 
 
+@functools.cache
 def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qutip.Qobj]:
     ops = [np.sqrt(decay_spin) * qubit_lower(num_spins, ss) for ss in range(num_spins)]
     ops.append(np.sqrt(decay_res) * resonator_lower(num_spins))
@@ -92,7 +94,6 @@ def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qu
 
 @functools.cache
 def get_identity_matrix(dim: int) -> scipy.sparse.spmatrix:
-    """Construct an idendity matrix of a given dimension."""
     return scipy.sparse.eye(dim)
 
 
@@ -204,23 +205,24 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ):
-    hamiltonian = get_hamiltonian(num_spins, splitting, coupling)
-    hamiltonian_disp = get_hamiltonian(num_spins, splitting, coupling + diff_step)
+    hamiltonian_p = get_hamiltonian(num_spins, splitting, coupling + diff_step / 2)
+    hamiltonian_m = get_hamiltonian(num_spins, splitting, coupling - diff_step / 2)
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
 
     def _get_states(hamiltonian: qutip.Qobj) -> np.ndarray:
         return get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
 
-    states = _get_states(hamiltonian)
-    states_disp = _get_states(hamiltonian_disp)
+    states_p = _get_states(hamiltonian_p)
+    states_m = _get_states(hamiltonian_m)
 
     # compute the QFI
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
-    for tt, (state, state_disp) in enumerate(zip(states, states_disp)):
-        state_diff = (state_disp - state) / diff_step
+    for tt, (state_p, state_m) in enumerate(zip(states_p, states_m)):
+        state_avg = (state_p + state_m) / 2
+        state_diff = (state_p - state_m) / diff_step
 
-        vals_QFI[tt] = get_QFI(state, state_diff)
-        vals_QFI_SA[tt] = np.real(1 - state[0, 0]) * vals_QFI[tt]
+        vals_QFI[tt] = get_QFI(state_avg, state_diff)
+        vals_QFI_SA[tt] = np.real(1 - state_avg[0, 0]) * vals_QFI[tt]
 
     return times, vals_QFI, vals_QFI_SA

@@ -6,11 +6,9 @@ job_name = "test"
 base_name = os.path.join(job_dir, job_name)
 
 # num_spins = [2, 3, 4, 5]
-# decay_res = [0.01, 0.02, 0.04, 0.08, 0.12, 0.16, 0.20, 0.24]
-# decay_spin = decay_res
-
+# decay_res = [0.25 0.50 1 2 3 4 5]
 num_spins = [2]
-decay_res = [0.01]
+decay_res = [0.25]
 decay_spin = decay_res
 state_keys = ["ghz"]
 

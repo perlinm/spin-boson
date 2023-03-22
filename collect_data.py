@@ -20,7 +20,7 @@ def get_file_path(
     data_dir: str, prefix: str, state_key: str, num_spins: int, decay_res: float, decay_spin: float
 ) -> str:
     data_dir = get_data_dir(data_dir, state_key)
-    return os.path.join(data_dir, f"{prefix}_N{num_spins}_k{decay_res:.4f}_g{decay_spin:.4f}.txt")
+    return os.path.join(data_dir, f"{prefix}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}.txt")
 
 
 get_initial_state = {
@@ -121,9 +121,9 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     )
 
     # default physical parameters
-    parser.add_argument("--splitting", type=float, default=0)  # eV
-    parser.add_argument("--coupling", type=float, default=0.04)  # eV
-    parser.add_argument("--max_time", type=float, default=100)  # in femptoseconds
+    parser.add_argument("--coupling", type=float, default=1)
+    parser.add_argument("--splitting", type=float, default=0)
+    parser.add_argument("--max_time", type=float, default=1000)
     parser.add_argument("--time_points", type=int, default=201)
 
     # default directories
@@ -137,16 +137,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--num_jobs", type=int, default=1)
     parser.add_argument("--recompute", action="store_true", default=False)
 
-    args = parser.parse_args(sys_argv[1:])
-
-    # convert time units into hbar/eV
-    femptosecond = 1e-15  # seconds
-    hbar_over_hartree = 2.41888e-17  # seconds
-    hartree_over_eV = 27.2114  # dimensionless
-    hbar_over_eV = hbar_over_hartree * hartree_over_eV  # hbar/eV
-    args.max_time *= femptosecond / hbar_over_eV
-
-    return args
+    return parser.parse_args(sys_argv[1:])
 
 
 if __name__ == "__main__":
