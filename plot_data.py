@@ -121,34 +121,34 @@ if __name__ == "__main__":
             plt.savefig(fig_path)
             plt.close()
 
-        print(f"plotting system size scaling ({state_key})")
-        for (kk, kappa), (gg, gamma) in itertools.product(
-            enumerate(args.decay_res), enumerate(args.decay_spin)
-        ):
-            plt.figure(figsize=figsize)
-            plt.title(rf"$\kappa/g={kappa}$, $\gamma/g={gamma}$")
-            plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko")
-            plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo")
-            plt.xlabel("$N$")
-            plt.ylabel(r"QFI $\times g^2$")
-            plt.tight_layout()
+        # print(f"plotting system size scaling ({state_key})")
+        # for (kk, kappa), (gg, gamma) in itertools.product(
+        #     enumerate(args.decay_res), enumerate(args.decay_spin)
+        # ):
+        #     plt.figure(figsize=figsize)
+        #     plt.title(rf"$\kappa/g={kappa}$, $\gamma/g={gamma}$")
+        #     plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko")
+        #     plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo")
+        #     plt.xlabel("$N$")
+        #     plt.ylabel(r"QFI $\times g^2$")
+        #     plt.tight_layout()
 
-            fig_name = f"qfi_{state_key}_k{kappa:.2f}_g{gamma:.2f}.pdf"
-            plt.savefig(os.path.join(args.fig_dir, fig_name))
-            plt.close()
+        #     fig_name = f"qfi_{state_key}_k{kappa:.2f}_g{gamma:.2f}.pdf"
+        #     plt.savefig(os.path.join(args.fig_dir, fig_name))
+        #     plt.close()
 
-        print(f"plotting time-series data ({state_key})")
-        for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
-            enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
-        ):
-            plt.figure(figsize=figsize)
-            plt.title(rf"$N={num_spins}$, $\kappa/g={kappa}$, $\gamma/g={gamma}$")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
-            plt.xlabel(r"time $\times g$")
-            plt.ylabel(r"QFI $\times g^2$")
-            plt.tight_layout()
+        # print(f"plotting time-series data ({state_key})")
+        # for (nn, num_spins), (kk, kappa), (gg, gamma) in itertools.product(
+        #     enumerate(args.num_spins), enumerate(args.decay_res), enumerate(args.decay_spin)
+        # ):
+        #     plt.figure(figsize=figsize)
+        #     plt.title(rf"$N={num_spins}$, $\kappa/g={kappa}$, $\gamma/g={gamma}$")
+        #     plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
+        #     plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
+        #     plt.xlabel(r"time $\times g$")
+        #     plt.ylabel(r"QFI $\times g^2$")
+        #     plt.tight_layout()
 
-            fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.2f}_g{gamma:.2f}.pdf"
-            plt.savefig(os.path.join(args.fig_dir, fig_name))
-            plt.close()
+        #     fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.2f}_g{gamma:.2f}.pdf"
+        #     plt.savefig(os.path.join(args.fig_dir, fig_name))
+        #     plt.close()

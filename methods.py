@@ -6,9 +6,10 @@ import qutip
 import scipy
 
 DEFAULT_INTEGRATION_METHOD = "qutip"
-DEFAULT_RTOL = 1e-12
-DEFAULT_ATOL = 1e-12
-DEFAULT_DIFF_STEP = 1e-4
+DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
+DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
+DEFAULT_ATOL = 1e-10
+DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
 
 ################################################################################
 # operator definitions
@@ -182,14 +183,14 @@ def get_states(
 # Fisher info calculation
 
 
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, tol: float = DEFAULT_ATOL):
+def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL):
     vals, vecs = np.linalg.eigh(state)
 
     # numerators and denominators
     nums = 2 * abs(vecs.conj().T @ state_diff @ vecs) ** 2
     dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
-    include = ~np.isclose(dens, 0, atol=tol)  # matrix of booleans (True/False)
+    include = ~np.isclose(dens, 0, atol=etol)  # matrix of booleans (True/False)
     return (nums[include] / dens[include]).sum()
 
 
@@ -204,6 +205,7 @@ def get_QFI_vals(
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
+    etol: float = DEFAULT_ETOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ):
     hamiltonian_p = get_hamiltonian(num_spins, splitting, coupling + diff_step / 2)
@@ -223,7 +225,7 @@ def get_QFI_vals(
         state_avg = (state_p + state_m) / 2
         state_diff = (state_p - state_m) / diff_step
 
-        vals_QFI[tt] = get_QFI(state_avg, state_diff)
+        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
         vals_QFI_SA[tt] = np.real(1 - state_avg[0, 0]) * vals_QFI[tt]
 
     return times, vals_QFI, vals_QFI_SA
