@@ -107,7 +107,7 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
     """
     Convert a jump operator 'J' into a generator of time evolution for a density matrix 'rho', such
     that the generator corresponding to 'J' acts on the vectorized version of 'rho' as
-        J_generator @ rho_vec ~= J rho J^dag + 1/2 [J^dag J, rho]_+,
+        J_generator @ rho_vec ~= J rho J^dag - 1/2 [J^dag J, rho]_+,
     where '[A, B]_+ = A B + B A', and '~=' denotes equality up to reshaping an array.
     """
     direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
@@ -147,6 +147,7 @@ def get_states(
 ) -> np.ndarray:
     dim = initial_state.shape[0]
     final_shape = (len(times), dim, dim)
+
     if method == "qutip":
         options = qutip.Options(rtol=rtol, atol=atol)
         result = qutip.mesolve(hamiltonian, initial_state, times, jump_ops, options=options)
