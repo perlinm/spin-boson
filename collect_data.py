@@ -145,7 +145,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     decay_com = args.decay is not None and args.decay_res is None and args.decay_spin is None
     decay_sep = args.decay is None and args.decay_res is not None and args.decay_spin is not None
     if not (decay_com ^ decay_sep):
-        parser.error("provide only --decay, XOR both --decay_res and --decay_spin")
+        parser.error("Provide only --decay, XOR both --decay_res and --decay_spin")
     if decay_com:
         args.decay_res = args.decay_spin = args.decay
 
