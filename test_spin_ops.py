@@ -22,7 +22,7 @@ def test_collective_ops() -> None:
     for spin_num in range(5):
         dim = spin_ops.get_spin_op_dim(spin_num)
         op_Sz_L = spin_ops.get_Sz_L(spin_num).todok()
-        op_Sz_R = spin_ops.get_adjoint(op_Sz_L)
+        op_Sz_R = spin_ops.get_dual(op_Sz_L)
 
         # check correctness of left- and right-acting S_z operators
         for index in range(dim):
@@ -40,9 +40,9 @@ def test_collective_ops() -> None:
         op_Sp_Sm_L_2 = op_SS - op_Sz_L @ op_Sz_L + op_Sz_L
         assert np.allclose(op_Sp_Sm_L_1.diagonal(), op_Sp_Sm_L_2.diagonal())
 
-        op_Sp_R = spin_ops.get_adjoint(op_Sp_L)
-        op_Sm_R = spin_ops.get_adjoint(op_Sm_L)
+        op_Sp_R = spin_ops.get_dual(op_Sp_L)
+        op_Sm_R = spin_ops.get_dual(op_Sm_L)
 
-        op_Sp_Sm_R_1 = op_Sp_R @ op_Sm_R
+        op_Sp_Sm_R_1 = op_Sm_R @ op_Sp_R
         op_Sp_Sm_R_2 = op_SS - op_Sz_R @ op_Sz_R + op_Sz_R
         assert np.allclose(op_Sp_Sm_R_1.diagonal(), op_Sp_Sm_R_2.diagonal())

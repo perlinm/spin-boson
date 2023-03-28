@@ -63,19 +63,28 @@ def get_transpose_basis_index(basis_index: int, spin_num_mod_2: int) -> int:
     return get_spin_basis_index(shell_dim, up_inp, up_out)
 
 
-def get_adjoint(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
-    """Compute an adjoint of a left-acting operator.
+def get_dual(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
+    """Compute the right-acting "dual" of a left-acting operator.
 
-    For a given superoperator `O` that acts on a density matrix `rho` as `O(rho) = M rho`, compute
-    the adjoint `Q` that acts on `p` as `Q(rho) = rho M^dag`.
+    For a given (super)operator `O` that acts on a density matrix `rho` as `O(rho) = M rho`,
+    compute the dual `Q` that acts on `p` as `Q(rho) = rho @ M`.
     """
     spin_num = get_spin_num(spin_op.shape[0])
     new_op = scipy.sparse.dok_matrix(spin_op.shape, dtype=spin_op.dtype)
     for idx_out, idx_inp in zip(*spin_op.nonzero()):
-        idx_out_T = get_transpose_basis_index(idx_out, spin_num % 2)
-        idx_inp_T = get_transpose_basis_index(idx_inp, spin_num % 2)
-        new_op[idx_out_T, idx_inp_T] = spin_op[idx_out, idx_inp].conj()
+        new_idx_out = get_transpose_basis_index(idx_inp, spin_num % 2)
+        new_idx_inp = get_transpose_basis_index(idx_out, spin_num % 2)
+        new_op[new_idx_out, new_idx_inp] = spin_op[idx_out, idx_inp]
     return new_op.asformat(spin_op.getformat())
+
+
+def get_adjoint(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
+    """Compute the Lie-algebraic adjoint of a left-acting operator.
+
+    For a given (super)operator `O` that acts on a density matrix `rho` as `O(rho) = M rho`,
+    compute the adjoint `Q` that acts on `p` as `Q(rho) = [M, rho] = M @ rho - rho @ M`.
+    """
+    return spin_op - get_dual(spin_op)
 
 
 def get_Sz_L(spin_num: int) -> scipy.sparse.spmatrix:
@@ -88,7 +97,7 @@ def get_Sz_L(spin_num: int) -> scipy.sparse.spmatrix:
 
 
 def get_Sp_L(spin_num: int, _invert: bool = False) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_p rho`."""
+    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_p @ rho`."""
     sign = 1 if not _invert else -1
     dim = get_spin_op_dim(spin_num)
     mat = scipy.sparse.dok_matrix((dim, dim), dtype=float)
@@ -105,12 +114,12 @@ def get_Sp_L(spin_num: int, _invert: bool = False) -> scipy.sparse.spmatrix:
 
 
 def get_Sm_L(spin_num: int) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_m rho`."""
+    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_m @ rho`."""
     return get_Sp_L(spin_num, _invert=True)
 
 
 def get_S(spin_num: int) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S rho`."""
+    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S @ rho`."""
     vals = [(shell_dim - 1) / 2 for _, shell_dim, _, _ in spin_op_basis_elements(spin_num)]
     shape = (len(vals),) * 2
     return scipy.sparse.dia_matrix(([vals], [0]), shape)
