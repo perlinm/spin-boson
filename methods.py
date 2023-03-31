@@ -133,10 +133,6 @@ def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> sci
     )
 
 
-def time_deriv(time: float, state: np.ndarray, generator: scipy.sparse.spmatrix) -> np.ndarray:
-    return generator @ state
-
-
 def get_states(
     times: Sequence[float],
     initial_state: qutip.Qobj,
@@ -167,12 +163,11 @@ def get_states(
 
     # numerically integrate the initial state
     solution = scipy.integrate.solve_ivp(
-        time_deriv,
+        lambda time, state: generator @ state,
         (times[0], times[-1]),
         initial_state_matrix_vec,
         t_eval=times,
         method=method,
-        args=(generator,),
         rtol=rtol,
         atol=atol,
     )
