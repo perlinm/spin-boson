@@ -146,11 +146,11 @@ def get_SS(num_spins: int) -> scipy.sparse.spmatrix:
 
 def get_local_dissipator(
     num_spins: int,
-    local_op: Literal["+", "-", "z"],
+    local_op: Literal["z", "+", "-"],
 ) -> scipy.sparse.spmatrix:
-    """Return a dissipator that generates spontaneous local spin excitation, decay, or dephasing."""
+    """Return a dissipator that generates spontaneous local spin dephasing, excitation, or decay."""
     dim = get_spin_op_dim(num_spins)
-    identity_op = num_spins * scipy.sparse.identity((dim, dim), dtype=float)
+    identity_op = num_spins * scipy.sparse.identity(dim, dtype=float)
     if local_op == "+":
         recycling_op = (identity_op - get_Sz_L(num_spins)) / 2
     elif local_op == "-":
@@ -163,12 +163,12 @@ def get_local_dissipator(
 
 def _local_op_conjugator(
     num_spins: int,
-    op_lft: Literal["+", "-", "z"],
-    op_rht: Optional[Literal["+", "-", "z"]] = None,
+    op_lft: Literal["z", "+", "-"],
+    op_rht: Optional[Literal["z", "+", "-"]] = None,
 ) -> scipy.sparse.spmatrix:
     """For a collective spin state `rho`, return sum_{spin j} O_lft_j rho O_rht_j^dag,
-    where O_lft and O_rht are single-spin excitation, decay, or dephasing operators, respectively
-    |1><0|, |0><1|, or |1><1| - |0><0|.
+    where O_lft and O_rht are single-spin dephasing, excitation, or decay operators, respectively
+    |1><1| - |0><0|, |1><0|, |0><1|.
     """
     if op_rht is None:
         op_rht = op_lft
@@ -201,7 +201,7 @@ def _local_op_conjugator(
     return mat
 
 
-def _proj_shift(shift: Literal["+", "-", "z"]) -> float:
+def _proj_shift(shift: Literal["z", "+", "-"]) -> float:
     if shift == "+":
         return 1
     if shift == "-":
@@ -209,7 +209,7 @@ def _proj_shift(shift: Literal["+", "-", "z"]) -> float:
     return 0
 
 
-def _coef_A(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> float:
+def _coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return np.sqrt((spin_val - spin_proj) * (spin_val + spin_proj + 1))
     if op == "-":
@@ -217,7 +217,7 @@ def _coef_A(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
     return spin_proj
 
 
-def _coef_B(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> float:
+def _coef_B(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return np.sqrt((spin_val - spin_proj) * (spin_val - spin_proj - 1))
     if op == "-":
@@ -225,7 +225,7 @@ def _coef_B(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
     return np.sqrt((spin_val + spin_proj) * (spin_val - spin_proj))
 
 
-def _coef_D(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> float:
+def _coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return -np.sqrt((spin_val + spin_proj + 1) * (spin_val + spin_proj + 2))
     if op == "-":
