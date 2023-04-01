@@ -49,14 +49,23 @@ def test_collective_ops() -> None:
 
 def test_spin_states() -> None:
     for num_spins in range(5):
-        # test that the Dicke states have fixed spin projection onto the Z axis
+        # test that the Dicke states transform appropriately under S_z and S_+
         op_Sz_L = spin_ops.get_Sz_L(num_spins)
+        op_Sp_L = spin_ops.get_Sp_L(num_spins)
+        op_Sp = spin_ops.get_dual(op_Sp_L.T) @ op_Sp_L
         for num_excitations in range(num_spins + 1):
-            proj_z = num_excitations - num_spins / 2
-            state = spin_ops.get_dicke_state(num_spins, num_excitations)
-            assert np.isclose(state @ op_Sz_L @ state, proj_z)
+            spin_val = num_spins / 2
+            proj_val = num_excitations - num_spins / 2
 
-        # test that the GHZ state has <Sz> = 0 and <Sz^2> = S^2
+            state = spin_ops.get_dicke_state(num_spins, num_excitations)
+            assert np.isclose(state @ op_Sz_L @ state, proj_val)
+
+            excited_state = op_Sp @ state
+            exact_excited_state = spin_ops.get_dicke_state(num_spins, num_excitations + 1)
+            scalar = spin_val * (spin_val + 1) - proj_val * (proj_val + 1)
+            assert np.allclose(excited_state, scalar * exact_excited_state)
+
+        # test that the GHZ state has <S_z> = 0 and <S_z^2> = S^2
         state = spin_ops.get_ghz_state(num_spins)
         assert np.isclose(state @ op_Sz_L @ state, 0)
         assert np.isclose(state @ op_Sz_L @ op_Sz_L @ state, (num_spins / 2) ** 2)

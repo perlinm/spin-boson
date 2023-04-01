@@ -139,7 +139,7 @@ def get_local_dissipator(
     num_spins: int,
     local_op: Literal["+", "-", "z"],
 ) -> scipy.sparse.spmatrix:
-    """Return a dissipator that generates local spin dissipation."""
+    """Return a dissipator that generates spontaneous local spin excitation, decay, or dephasing."""
     dim = get_spin_op_dim(num_spins)
     identity_op = num_spins * scipy.sparse.identity((dim, dim), dtype=float)
     if local_op == "+":
@@ -157,6 +157,10 @@ def _local_op_conjugator(
     op_lft: Literal["+", "-", "z"],
     op_rht: Optional[Literal["+", "-", "z"]] = None,
 ) -> scipy.sparse.spmatrix:
+    """For a collective spin state `rho`, return sum_{spin j} O_lft_j rho O_rht_j^dag,
+    where O_lft and O_rht are single-spin excitation, decay, or dephasing operators, respectively
+    |1><0|, |0><1|, or |1><1| - |0><0|.
+    """
     if op_rht is None:
         op_rht = op_lft
 
@@ -164,8 +168,8 @@ def _local_op_conjugator(
     mat = scipy.sparse.dok_matrix((dim, dim), dtype=float)
     for idx_inp, shell_dim, up_out, up_inp in spin_op_basis_elements(num_spins):
         spin_val = (shell_dim - 1) / 2
-        shifted_up_out = _shifted_proj(up_out, op_lft)
-        shifted_up_inp = _shifted_proj(up_inp, op_rht)
+        shifted_up_out = up_out + _proj_shift(op_lft)
+        shifted_up_inp = up_inp + _proj_shift(op_rht)
 
         idx_out = get_spin_basis_index(shell_dim, shifted_up_out, shifted_up_inp)
         coef_0 = (num_spins + 2) / (spin_val * (spin_val + 1))
@@ -188,12 +192,12 @@ def _local_op_conjugator(
     return mat
 
 
-def _shifted_proj(spin_proj: float, shift: Literal["+", "-", "z"]) -> float:
+def _proj_shift(shift: Literal["+", "-", "z"]) -> float:
     if shift == "+":
-        return spin_proj + 1
+        return 1
     if shift == "-":
-        return spin_proj - 1
-    return spin_proj
+        return -1
+    return 0
 
 
 def _coef_A(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> float:
@@ -223,9 +227,10 @@ def _coef_D(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
 def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:
     """Prepare a Dicke state of the given number of spins."""
     state = np.zeros(get_spin_op_dim(num_spins))
-    shell_start = -(num_spins + 1)**2
-    shell_index = num_excitations * (num_spins + 2)
-    state[shell_start + shell_index] = 1
+    if 0 <= num_excitations <= num_spins:
+        shell_start = -(num_spins + 1)**2
+        shell_index = num_excitations * (num_spins + 2)
+        state[shell_start + shell_index] = 1
     return state
 
 
