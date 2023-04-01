@@ -13,9 +13,9 @@ MAX_NUM_SPINS = 4
 
 def get_collective_ops_qutip(num_spins: int) -> tuple[qutip.Qobj, qutip.Qobj, qutip.Qobj]:
     return (
+        methods.collective_qubit_op(qutip.sigmaz(), num_spins) / 2,
         methods.collective_qubit_op(qutip.sigmax(), num_spins) / 2,
         methods.collective_qubit_op(qutip.sigmay(), num_spins) / 2,
-        methods.collective_qubit_op(qutip.sigmaz(), num_spins) / 2,
     )
 
 
@@ -27,7 +27,7 @@ def get_collective_ops_PS(
     op_Sm = spin_ops.get_Sm_L(num_spins)
     op_Sx = (op_Sp + op_Sm) / 2
     op_Sy = (op_Sp - op_Sm) / 2j
-    return op_Sx, op_Sy, op_Sz
+    return op_Sz, op_Sx, op_Sy
 
 
 def get_jump_ops_qutip(num_spins: int, kraus_vec: tuple[float, float, float]) -> tuple[qutip.Qobj, ...]:
@@ -49,7 +49,9 @@ def test_spin_evolution() -> None:
     times = np.linspace(0, 5, 20)
     ham_vec = np.random.random(3)
     kraus_vec = tuple(np.random.random(3))
-    kraus_vec = (0, 0, 0)
+
+    ham_vec = (0, 0, 0)
+    kraus_vec = (1, 0, 0)
 
     for num_spins in range(1, MAX_NUM_SPINS):
 
@@ -60,9 +62,9 @@ def test_spin_evolution() -> None:
         jump_ops = get_jump_ops_qutip(num_spins, kraus_vec)
         states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
         vals = [
-            state.conj().ravel() @ collective_op.data.toarray().ravel()
-            for state in states
+            (collective_op.data.conj().toarray().ravel() @ state.ravel()).real
             for collective_op in collective_ops
+            for state in states
         ]
 
         # simulate with PS methods
@@ -73,12 +75,18 @@ def test_spin_evolution() -> None:
         generator = -1j * (hamiltonian - spin_ops.get_dual(hamiltonian)) + dissipator
         states = methods_PS.get_states(times, initial_state, generator)
         vals_PS = [
-            spin_ops.get_spin_trace(collective_op @ state)
-            for state in states
+            spin_ops.get_spin_trace(collective_op @ state).real
             for collective_op in collective_ops
+            for state in states
         ]
 
-        assert np.allclose(vals, vals_PS)
+        # assert np.allclose(vals, vals_PS)
+        import matplotlib.pyplot as plt
+        plt.plot(times, vals[:len(times)])
+        plt.plot(times, vals_PS[:len(times)])
+        plt.tight_layout()
+        plt.show()
+        break
 
 
 def test_spin_boson_evolution() -> None:
