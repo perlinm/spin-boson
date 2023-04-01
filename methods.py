@@ -26,15 +26,15 @@ def collective_qubit_op(qubit_op: qutip.Qobj, num_spins: int) -> qutip.Qobj:
 
 
 def qubit_lower(num_spins: int, target_index: int) -> qutip.Qobj:
-    return act_on(qutip.destroy(2), target_index, num_spins)
+    return act_on(qutip.sigmam(), target_index, num_spins)
 
 
 def collective_lower(num_spins: int) -> qutip.Qobj:
-    return collective_qubit_op(qutip.destroy(2), num_spins)
+    return collective_qubit_op(qutip.sigmam(), num_spins)
 
 
 def collective_raise(num_spins: int) -> qutip.Qobj:
-    return collective_qubit_op(qutip.destroy(2).dag(), num_spins)
+    return collective_lower(num_spins).dag()
 
 
 def collective_Sz(num_spins: int) -> qutip.Qobj:
@@ -58,7 +58,7 @@ def resonator_num_op(num_spins: int) -> qutip.Qobj:
 
 
 def get_all_down_state(num_spins: int) -> qutip.Qobj:
-    states = [qutip.fock(2, 0)] * num_spins + [qutip.fock(num_spins + 1, 0)]
+    states = [qutip.fock(2, 1)] * num_spins + [qutip.fock(num_spins + 1, 0)]
     return qutip.tensor(*states)
 
 
@@ -137,7 +137,7 @@ def get_states(
     times: Sequence[float],
     initial_state: qutip.Qobj,
     hamiltonian: qutip.Qobj,
-    jump_ops: Sequence[qutip.Qobj],
+    jump_ops: Sequence[qutip.Qobj] = (),
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,

@@ -33,7 +33,7 @@ def get_boson_state(dim: int, index: int = 0) -> np.ndarray:
     return state
 
 
-def get_hamiltonian_bracket(
+def get_hamiltonian_generator(
     num_spins: int,
     splitting: float,
     coupling: float,
@@ -72,7 +72,7 @@ def get_hamiltonian_bracket(
     coupling_term = coupling_op + coupling_op.T
 
     hamiltonian_bracket = splitting * (spin_term + cavity_term) + coupling * coupling_term
-    return 2 * np.pi * hamiltonian_bracket
+    return -1j * 2 * np.pi * hamiltonian_bracket
 
 
 def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
@@ -148,8 +148,8 @@ def get_QFI_vals(
     etol: float = DEFAULT_ETOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ):
-    hamiltonian_p = get_hamiltonian_bracket(num_spins, splitting, coupling + diff_step / 2)
-    hamiltonian_m = get_hamiltonian_bracket(num_spins, splitting, coupling - diff_step / 2)
+    hamiltonian_p = get_hamiltonian_generator(num_spins, splitting, coupling + diff_step / 2)
+    hamiltonian_m = get_hamiltonian_generator(num_spins, splitting, coupling - diff_step / 2)
 
     dissipator_res = np.kron(
         scipy.sparse.identity(spin_ops.get_spin_op_dim(num_spins)),

@@ -237,6 +237,11 @@ def _coef_D(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
 # methods to construct spin states
 
 
+def get_spin_vacuum(num_spins: int) -> np.ndarray:
+    """Prepare a spin-down-polarized state."""
+    return get_dicke_state(num_spins, 0)
+
+
 def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:
     """Prepare a Dicke state of the given number of spins."""
     if num_spins == 0:
@@ -280,11 +285,11 @@ def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
         shell_dim += 2
 
 
-def get_spin_trace(state: np.ndarray) -> np.ndarray:
-    num_spins = get_num_spins(state.shape[0])
+def get_spin_trace(spin_op: np.ndarray) -> np.ndarray:
+    num_spins = get_num_spins(spin_op.shape[0])
     shell_dims = range(num_spins % 2 + 1, num_spins + 2, 2)
     return sum(
-        state[get_spin_basis_index(shell_dim, num, num)]
+        spin_op[get_spin_basis_index(shell_dim, num, num)]
         for shell_dim in shell_dims
         for num in range(shell_dim)
     )
