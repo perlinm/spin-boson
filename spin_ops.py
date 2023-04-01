@@ -173,31 +173,43 @@ def _local_op_conjugator(
     if op_rht is None:
         op_rht = op_lft
 
-    dim = get_spin_op_dim(num_spins)
-    mat = scipy.sparse.dok_array((dim, dim), dtype=float)
+    total_dim = get_spin_op_dim(num_spins)
+    mat = scipy.sparse.dok_array((total_dim, total_dim), dtype=float)
     for idx_inp, shell_dim, up_out, up_inp in spin_op_basis_elements(num_spins):
         spin_val = (shell_dim - 1) / 2
+        proj_out = up_out - spin_val
+        proj_inp = up_inp - spin_val
         shifted_up_out = up_out + _proj_shift(op_lft)
         shifted_up_inp = up_inp + _proj_shift(op_rht)
+        if shifted_up_out < 0 or shifted_up_inp < 0:
+            continue
 
-        idx_out = get_spin_basis_index(shell_dim, shifted_up_out, shifted_up_inp)
-        coef_0 = (num_spins + 2) / (spin_val * (spin_val + 1))
-        _A_lft = _coef_A(op_lft, spin_val, up_out)
-        _A_rht = _coef_A(op_rht, spin_val, up_inp)
-        mat[idx_out, idx_inp] = coef_0 * _A_lft * _A_rht / 4
+        dim = shell_dim
+        if shifted_up_out < dim and shifted_up_inp < dim and shell_dim > 1:
+            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
+            coef_0 = (num_spins + 2) / (spin_val * (spin_val + 1))
+            _A_lft = _coef_A(op_lft, spin_val, proj_out)
+            _A_rht = _coef_A(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_0 * _A_lft * _A_rht / 4
 
-        idx_out = get_spin_basis_index(shell_dim - 1, shifted_up_out, shifted_up_inp)
-        coef_m = (num_spins + 2 * spin_val + 2) / (spin_val * (2 * spin_val + 1))
-        _B_lft = _coef_B(op_lft, spin_val, up_out)
-        _B_rht = _coef_B(op_rht, spin_val, up_inp)
-        mat[idx_out, idx_inp] = coef_m * _B_lft * _B_rht
+        dim = shell_dim - 1
+        if shifted_up_out < dim and shifted_up_inp < dim and dim > 0 and shell_dim > 1:
+            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
+            coef_m = (num_spins + 2 * spin_val + 2) / (spin_val * (2 * spin_val + 1))
+            _B_lft = _coef_B(op_lft, spin_val, proj_out)
+            _B_rht = _coef_B(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_m * _B_lft * _B_rht
 
-        idx_out = get_spin_basis_index(shell_dim + 1, shifted_up_out, shifted_up_inp)
-        coef_p = (num_spins - 2 * spin_val) / (2 * spin_val**2 + 3 * spin_val + 1)
-        _D_lft = _coef_D(op_lft, spin_val, up_out)
-        _D_rht = _coef_D(op_rht, spin_val, up_inp)
-        mat[idx_out, idx_inp] = coef_p * _D_lft * _D_rht / 4
+        dim = shell_dim + 1
+        if shifted_up_out < dim and shifted_up_inp < dim and dim <= num_spins + 1:
+            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
+            coef_p = (num_spins - 2 * spin_val) / (2 * spin_val**2 + 3 * spin_val + 1)
+            _D_lft = _coef_D(op_lft, spin_val, proj_out)
+            _D_rht = _coef_D(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_p * _D_lft * _D_rht / 4
 
+    mat = mat.tocsr()
+    mat.eliminate_zeros()
     return mat
 
 

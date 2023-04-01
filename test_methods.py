@@ -52,12 +52,13 @@ def test_spin_evolution() -> None:
     kraus_vec = (0, 0, 0)
 
     for num_spins in range(1, MAX_NUM_SPINS):
+
         # simulate with qutip
         initial_state = qutip.ket2dm(methods.get_all_down_state(num_spins))
         collective_ops = get_collective_ops_qutip(num_spins)
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         jump_ops = get_jump_ops_qutip(num_spins, kraus_vec)
-        states = methods.get_states(times, initial_state, jump_ops, hamiltonian)
+        states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
         vals = [
             state.conj().ravel() @ collective_op.data.toarray().ravel()
             for state in states
