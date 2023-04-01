@@ -7,7 +7,6 @@ from typing import Iterator, Literal, Optional
 import numpy as np
 import scipy
 
-
 ################################################################################
 # spin operator format metadata
 
@@ -274,7 +273,7 @@ def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
     while shell_start < state.shape[0]:
         block_size = shell_dim**2
         block_slice = slice(shell_start, shell_start + block_size)
-        block_shape = (shell_dim, shell_dim)
+        block_shape = (shell_dim, shell_dim) + state.shape[2:]
         yield state[block_slice].reshape(block_shape)
 
         shell_start += block_size
