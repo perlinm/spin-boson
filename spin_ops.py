@@ -81,13 +81,15 @@ def get_dual(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
 
     The dual is determined by `rho @ M = (M^T @ rho^T)^T`.
     """
+    initial_format = spin_op.getformat()
+    spin_op = spin_op.tocsr()
     num_spins = get_num_spins(spin_op.shape[0])
     new_op = scipy.sparse.dok_matrix(spin_op.shape, dtype=spin_op.dtype)
     for idx_out, idx_inp in zip(*spin_op.nonzero()):
         new_idx_out = get_transpose_basis_index(idx_inp, num_spins % 2)
         new_idx_inp = get_transpose_basis_index(idx_out, num_spins % 2)
         new_op[new_idx_out, new_idx_inp] = spin_op[idx_out, idx_inp]
-    return new_op.asformat(spin_op.getformat())
+    return new_op.asformat(initial_format)
 
 
 def get_Sz_L(num_spins: int) -> scipy.sparse.spmatrix:
@@ -226,9 +228,11 @@ def _coef_D(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
 
 def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:
     """Prepare a Dicke state of the given number of spins."""
+    if num_spins == 0:
+        return np.ones(1)
     state = np.zeros(get_spin_op_dim(num_spins))
     if 0 <= num_excitations <= num_spins:
-        shell_start = -(num_spins + 1)**2
+        shell_start = -((num_spins + 1) ** 2)
         shell_index = num_excitations * (num_spins + 2)
         state[shell_start + shell_index] = 1
     return state
@@ -236,13 +240,30 @@ def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:
 
 def get_ghz_state(num_spins: int) -> np.ndarray:
     """Prepare a GHZ state of the given number of spins."""
+    if num_spins == 0:
+        return np.ones(1)
     state = np.zeros(get_spin_op_dim(num_spins))
     # set matrix elements to 0.5 within the S = N/2 manifold:
     #   |0><0|, |0><N|, |N><0|, |N><N|,
     # where |M> is the Dicke state with M excitations
-    shell_start = -(num_spins + 1)**2
+    shell_start = -((num_spins + 1) ** 2)
     state[shell_start] = 0.5
     state[shell_start + num_spins] = 0.5
     state[-1 - num_spins] = 0.5
     state[-1] = 0.5
     return state
+
+
+def get_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
+    """Iterate over the fixed-S blocks of a vectorized density matrix."""
+    num_spins = get_num_spins(state.shape[0])
+    shell_start = 0
+    shell_dim = num_spins % 2 + 1
+    while shell_start < state.shape[0]:
+        block_size = shell_dim**2
+        block_slice = slice(shell_start, shell_start + block_size)
+        block_shape = (shell_dim, shell_dim)
+        yield state[block_slice].reshape(block_shape)
+
+        shell_start += block_size
+        shell_dim += 2

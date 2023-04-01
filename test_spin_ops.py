@@ -4,9 +4,11 @@ import numpy as np
 
 import spin_ops
 
+MAX_NUM_SPINS = 4
+
 
 def test_spin_indexing() -> None:
-    for num_spins in range(5):
+    for num_spins in range(MAX_NUM_SPINS + 1):
         for shell_dim in range(num_spins % 2 + 1, num_spins + 2, 2):
             for up_out, up_inp in itertools.product(range(shell_dim), repeat=2):
                 basis_index = spin_ops.get_spin_basis_index(shell_dim, up_out, up_inp)
@@ -18,7 +20,7 @@ def test_spin_indexing() -> None:
 
 
 def test_collective_ops() -> None:
-    for num_spins in range(5):
+    for num_spins in range(MAX_NUM_SPINS + 1):
         dim = spin_ops.get_spin_op_dim(num_spins)
         op_Sz_L = spin_ops.get_Sz_L(num_spins).todok()
         op_Sz_R = spin_ops.get_dual(op_Sz_L)
@@ -48,18 +50,26 @@ def test_collective_ops() -> None:
 
 
 def test_spin_states() -> None:
-    for num_spins in range(5):
-        # test that the Dicke states transform appropriately under S_z and S_+
+    for num_spins in range(MAX_NUM_SPINS + 1):
+
+        # construct left- and rigt-acting S_z
         op_Sz_L = spin_ops.get_Sz_L(num_spins)
+        op_Sz_R = spin_ops.get_dual(op_Sz_L)
+
+        # construct an operator that acts with S_+ on the left and S_- on the right
         op_Sp_L = spin_ops.get_Sp_L(num_spins)
         op_Sp = spin_ops.get_dual(op_Sp_L.T) @ op_Sp_L
+
         for num_excitations in range(num_spins + 1):
             spin_val = num_spins / 2
             proj_val = num_excitations - num_spins / 2
 
+            # test that the Dicke states transform appropriately under S_z
             state = spin_ops.get_dicke_state(num_spins, num_excitations)
-            assert np.isclose(state @ op_Sz_L @ state, proj_val)
+            assert np.allclose(op_Sz_L @ state, proj_val * state)
+            assert np.allclose(op_Sz_R @ state, proj_val * state)
 
+            # test that the Dicke states transform appropriately under S_+
             excited_state = op_Sp @ state
             exact_excited_state = spin_ops.get_dicke_state(num_spins, num_excitations + 1)
             scalar = spin_val * (spin_val + 1) - proj_val * (proj_val + 1)
