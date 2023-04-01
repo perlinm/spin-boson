@@ -8,6 +8,10 @@ import numpy as np
 import scipy
 
 
+################################################################################
+# spin operator format metadata
+
+
 @functools.cache
 def get_spin_basis_index(shell_dim: int, up_out: int, up_inp: int) -> int:
     """Compute the basis index for the spin operator `|S><S|⊗|M_f><M_i| --> |S M_f M_i)`.
@@ -84,12 +88,16 @@ def get_dual(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
     initial_format = spin_op.getformat()
     spin_op = spin_op.tocsr()
     num_spins = get_num_spins(spin_op.shape[0])
-    new_op = scipy.sparse.dok_matrix(spin_op.shape, dtype=spin_op.dtype)
+    new_op = scipy.sparse.dok_array(spin_op.shape, dtype=spin_op.dtype)
     for idx_out, idx_inp in zip(*spin_op.nonzero()):
         new_idx_out = get_transpose_basis_index(idx_inp, num_spins % 2)
         new_idx_inp = get_transpose_basis_index(idx_out, num_spins % 2)
         new_op[new_idx_out, new_idx_inp] = spin_op[idx_out, idx_inp]
     return new_op.asformat(initial_format)
+
+
+################################################################################
+# methods to construct spin operators
 
 
 def get_Sz_L(num_spins: int) -> scipy.sparse.spmatrix:
@@ -99,13 +107,13 @@ def get_Sz_L(num_spins: int) -> scipy.sparse.spmatrix:
         for _, shell_dim, up_out, _ in spin_op_basis_elements(num_spins)
     ]
     shape = (len(vals),) * 2
-    return scipy.sparse.dia_matrix(([vals], [0]), shape)
+    return scipy.sparse.dia_array(([vals], [0]), shape)
 
 
 def get_Sp_L(num_spins: int) -> scipy.sparse.spmatrix:
     """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_p @ rho`."""
     dim = get_spin_op_dim(num_spins)
-    mat = scipy.sparse.dok_matrix((dim, dim), dtype=float)
+    mat = scipy.sparse.dok_array((dim, dim), dtype=float)
     for idx_inp, shell_dim, up_out, up_inp in spin_op_basis_elements(num_spins):
         new_up_out = up_out + 1
         if not 0 <= new_up_out < shell_dim:
@@ -127,7 +135,7 @@ def get_S(num_spins: int) -> scipy.sparse.spmatrix:
     """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S rho`."""
     vals = [(shell_dim - 1) / 2 for _, shell_dim, _, _ in spin_op_basis_elements(num_spins)]
     shape = (len(vals),) * 2
-    return scipy.sparse.dia_matrix(([vals], [0]), shape)
+    return scipy.sparse.dia_array(([vals], [0]), shape)
 
 
 def get_SS(num_spins: int) -> scipy.sparse.spmatrix:
@@ -167,7 +175,7 @@ def _local_op_conjugator(
         op_rht = op_lft
 
     dim = get_spin_op_dim(num_spins)
-    mat = scipy.sparse.dok_matrix((dim, dim), dtype=float)
+    mat = scipy.sparse.dok_array((dim, dim), dtype=float)
     for idx_inp, shell_dim, up_out, up_inp in spin_op_basis_elements(num_spins):
         spin_val = (shell_dim - 1) / 2
         shifted_up_out = up_out + _proj_shift(op_lft)
@@ -226,6 +234,10 @@ def _coef_D(op: Literal["+", "-", "z"], spin_val: float, spin_proj: float) -> fl
     return np.sqrt((spin_val + spin_proj + 1) * (spin_val - spin_proj + 1))
 
 
+################################################################################
+# methods to construct spin states
+
+
 def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:
     """Prepare a Dicke state of the given number of spins."""
     if num_spins == 0:
@@ -254,7 +266,7 @@ def get_ghz_state(num_spins: int) -> np.ndarray:
     return state
 
 
-def get_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
+def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
     """Iterate over the fixed-S blocks of a vectorized density matrix."""
     num_spins = get_num_spins(state.shape[0])
     shell_start = 0
@@ -267,3 +279,13 @@ def get_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
 
         shell_start += block_size
         shell_dim += 2
+
+
+def get_spin_trace(state: np.ndarray) -> np.ndarray:
+    num_spins = get_num_spins(state.shape[0])
+    shell_dims = range(num_spins % 2 + 1, num_spins + 2, 2)
+    return sum(
+        state[get_spin_basis_index(shell_dim, num, num)]
+        for shell_dim in shell_dims
+        for num in range(shell_dim)
+    )
