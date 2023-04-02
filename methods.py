@@ -95,7 +95,7 @@ def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qu
 
 @functools.cache
 def get_identity_matrix(dim: int) -> scipy.sparse.spmatrix:
-    return scipy.sparse.eye(dim)
+    return scipy.sparse.identity(dim)
 
 
 def to_adjoint_rep(matrix: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:

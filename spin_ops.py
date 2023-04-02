@@ -184,29 +184,18 @@ def _local_op_conjugator(
         if shifted_up_out < 0 or shifted_up_inp < 0:
             continue
 
-        dim = shell_dim
-        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
-            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_S = _get_coef_S(num_spins, spin_val, 0)
-            coef_A_lft = _get_coef_A(op_lft, spin_val, proj_out)
-            coef_A_rht = _get_coef_A(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_S * coef_A_lft * coef_A_rht
-
-        dim = shell_dim - 2
-        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
-            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_S = _get_coef_S(num_spins, spin_val, -1)
-            coef_B_lft = _get_coef_B(op_lft, spin_val, proj_out)
-            coef_B_rht = _get_coef_B(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_S * coef_B_lft * coef_B_rht
-
-        dim = shell_dim + 2
-        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
-            idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_S = _get_coef_S(num_spins, spin_val, 1)
-            coef_D_lft = _get_coef_D(op_lft, spin_val, proj_out)
-            coef_D_rht = _get_coef_D(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_S * coef_D_lft * coef_D_rht
+        for spin_shift in [0, -1, +1]:
+            dim_out = shell_dim + 2 * spin_shift
+            if (
+                0 < dim_out <= num_spins + 1
+                and 0 <= shifted_up_out < dim_out
+                and 0 <= shifted_up_inp < dim_out
+            ):
+                idx_out = get_spin_basis_index(dim_out, shifted_up_out, shifted_up_inp)
+                coef_S = _get_coef_S(num_spins, spin_val, spin_shift)
+                coef_CG_lft = _get_coef_CG(op_lft, spin_val, proj_out, spin_shift)
+                coef_CG_rht = _get_coef_CG(op_rht, spin_val, proj_inp, spin_shift)
+                mat[idx_out, idx_inp] = coef_S * coef_CG_lft * coef_CG_rht
 
     mat = mat.tocsr()
     mat.eliminate_zeros()
@@ -221,9 +210,18 @@ def _proj_shift(shift: Literal["z", "+", "-"]) -> float:
     return 0
 
 
-def _coef_dim(num_spins: int, spin_val: float) -> int:
-    binom_factor = scipy.special.comb(num_spins, num_spins / 2 + spin_val, exact=True)
-    return binom_factor * int(2 * spin_val + 1) / int(num_spins / 2 + spin_val + 1)
+def _get_coef_S(num_spins: int, spin_val: float, spin_shift: int) -> float:
+    if spin_val == 0 and spin_shift != 1:
+        return 0
+    if spin_shift == 0:
+        ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
+        return (1 + ratio * (2 * spin_val + 1) / (spin_val + 1)) / (2 * spin_val)
+    if spin_shift == -1:
+        ratio = _coef_alpha(num_spins, spin_val) / _coef_dim(num_spins, spin_val)
+        return ratio / (2 * spin_val)
+    assert spin_shift == 1
+    ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
+    return ratio / (2 * (spin_val + 1))
 
 
 def _coef_alpha(num_spins: int, spin_val: float) -> int:
@@ -233,17 +231,23 @@ def _coef_alpha(num_spins: int, spin_val: float) -> int:
     )
 
 
-def _get_coef_S(num_spins: int, spin_val: float, spin_shift: Literal[0, 1, -1]) -> float:
+def _coef_dim(num_spins: int, spin_val: float) -> int:
+    binom_factor = scipy.special.comb(num_spins, num_spins / 2 + spin_val, exact=True)
+    return binom_factor * int(2 * spin_val + 1) / int(num_spins / 2 + spin_val + 1)
+
+
+def _get_coef_CG(
+    op: Literal["z", "+", "-"],
+    spin_val: float,
+    spin_proj: float,
+    spin_shift: int,
+) -> float:
     if spin_shift == 0:
-        ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
-        return (1 + ratio * (2 * spin_val + 1) / (spin_val + 1)) / (2 * spin_val)
-    elif spin_shift == -1:
-        ratio = _coef_alpha(num_spins, spin_val) / _coef_dim(num_spins, spin_val)
-        return ratio / (2 * spin_val)
-    else:
-        assert spin_shift == 1
-        ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
-        return ratio / (2 * (spin_val + 1))
+        return _get_coef_A(op, spin_val, spin_proj)
+    if spin_shift == -1:
+        return _get_coef_B(op, spin_val, spin_proj)
+    assert spin_shift == 1
+    return _get_coef_D(op, spin_val, spin_proj)
 
 
 def _get_coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
@@ -251,6 +255,7 @@ def _get_coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -
         return np.sqrt((spin_val - spin_proj) * (spin_val + spin_proj + 1))
     if op == "-":
         return np.sqrt((spin_val + spin_proj) * (spin_val - spin_proj + 1))
+    assert op == "z"
     return spin_proj
 
 
@@ -259,6 +264,7 @@ def _get_coef_B(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -
         return np.sqrt((spin_val - spin_proj) * (spin_val - spin_proj - 1))
     if op == "-":
         return -np.sqrt((spin_val + spin_proj) * (spin_val + spin_proj - 1))
+    assert op == "z"
     return np.sqrt((spin_val + spin_proj) * (spin_val - spin_proj))
 
 
@@ -267,6 +273,7 @@ def _get_coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -
         return -np.sqrt((spin_val + spin_proj + 1) * (spin_val + spin_proj + 2))
     if op == "-":
         return np.sqrt((spin_val - spin_proj + 1) * (spin_val - spin_proj + 2))
+    assert op == "z"
     return np.sqrt((spin_val + spin_proj + 1) * (spin_val - spin_proj + 1))
 
 

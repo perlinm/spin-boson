@@ -82,7 +82,7 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
         J_generator @ rho_vec ~= J rho J^dag - 1/2 [J^dag J, rho]_+,
     where '[A, B]_+ = A B + B A', and '~=' denotes equality up to reshaping an array.
     """
-    identity = scipy.sparse.iden(jump_op.shape[0])
+    identity = scipy.sparse.identity(jump_op.shape[0])
     direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
     op_JJ = jump_op.conj().T @ jump_op
     recycling_term = scipy.sparse.kron(op_JJ, identity) + scipy.sparse.kron(identity, op_JJ.T)
