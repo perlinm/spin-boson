@@ -111,8 +111,8 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
         J_generator @ rho_vec ~= J rho J^dag - 1/2 [J^dag J, rho]_+,
     where '[A, B]_+ = A B + B A', and '~=' denotes equality up to reshaping an array.
     """
-    direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
     identity = get_identity_matrix(jump_op.shape[0])
+    direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
     op_JJ = jump_op.conj().T @ jump_op
     recycling_term = scipy.sparse.kron(op_JJ, identity) + scipy.sparse.kron(identity, op_JJ.T)
     return direct_term - recycling_term / 2
@@ -134,7 +134,7 @@ def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> sci
 
 
 def get_states(
-    times: Sequence[float],
+    times: Sequence[float] | np.ndarray,
     initial_state: qutip.Qobj,
     hamiltonian: qutip.Qobj,
     jump_ops: Sequence[qutip.Qobj] = (),

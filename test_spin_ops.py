@@ -4,7 +4,7 @@ import numpy as np
 
 import spin_ops
 
-MAX_NUM_SPINS = 4
+MAX_NUM_SPINS = 5
 
 
 def test_spin_indexing() -> None:

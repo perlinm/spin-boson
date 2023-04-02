@@ -157,8 +157,8 @@ def get_local_dissipator(
         recycling_op = (identity_op - 2 * get_Sz_L(num_spins)) / 2
     elif local_op == "-":
         recycling_op = (identity_op + 2 * get_Sz_L(num_spins)) / 2
-    recycling_term = -(recycling_op + get_dual(recycling_op)) / 2
-    return _local_op_conjugator(num_spins, local_op) + recycling_term
+    recycling_term = recycling_op + get_dual(recycling_op)
+    return _local_op_conjugator(num_spins, local_op) - recycling_term / 2
 
 
 def _local_op_conjugator(
@@ -179,13 +179,11 @@ def _local_op_conjugator(
         spin_val = (shell_dim - 1) / 2
         proj_out = up_out - spin_val
         proj_inp = up_inp - spin_val
-        shifted_up_out = up_out + _proj_shift(op_lft)
-        shifted_up_inp = up_inp + _proj_shift(op_rht)
-        if shifted_up_out < 0 or shifted_up_inp < 0:
-            continue
 
         for spin_shift in [0, -1, +1]:
             dim_out = shell_dim + 2 * spin_shift
+            shifted_up_out = up_out + _proj_shift(op_lft) + spin_shift
+            shifted_up_inp = up_inp + _proj_shift(op_rht) + spin_shift
             if (
                 0 < dim_out <= num_spins + 1
                 and 0 <= shifted_up_out < dim_out

@@ -94,7 +94,7 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
 
 
 def get_states(
-    times: Sequence[float],
+    times: Sequence[float] | np.ndarray,
     initial_state: np.ndarray,
     generator: scipy.sparse.spmatrix,
     method: str = DEFAULT_INTEGRATION_METHOD,
