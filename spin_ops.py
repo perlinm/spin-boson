@@ -151,12 +151,12 @@ def get_local_dissipator(
     """Return a dissipator that generates spontaneous local spin dephasing, excitation, or decay."""
     dim = get_spin_op_dim(num_spins)
     identity_op = num_spins * scipy.sparse.identity(dim, dtype=float)
-    if local_op == "+":
-        recycling_op = (identity_op - get_Sz_L(num_spins)) / 2
+    if local_op == "z":
+        recycling_op = identity_op / 4
+    elif local_op == "+":
+        recycling_op = (identity_op - 2 * get_Sz_L(num_spins)) / 2
     elif local_op == "-":
-        recycling_op = (identity_op + get_Sz_L(num_spins)) / 2
-    elif local_op == "z":
-        recycling_op = identity_op
+        recycling_op = (identity_op + 2 * get_Sz_L(num_spins)) / 2
     recycling_term = -(recycling_op + get_dual(recycling_op)) / 2
     return _local_op_conjugator(num_spins, local_op) + recycling_term
 
@@ -185,28 +185,28 @@ def _local_op_conjugator(
             continue
 
         dim = shell_dim
-        if shifted_up_out < dim and shifted_up_inp < dim and shell_dim > 1:
+        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
             idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_0 = (num_spins + 2) / (spin_val * (spin_val + 1))
-            _A_lft = _coef_A(op_lft, spin_val, proj_out)
-            _A_rht = _coef_A(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_0 * _A_lft * _A_rht / 4
+            coef_S = _get_coef_S(num_spins, spin_val, 0)
+            coef_A_lft = _get_coef_A(op_lft, spin_val, proj_out)
+            coef_A_rht = _get_coef_A(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_S * coef_A_lft * coef_A_rht
 
-        dim = shell_dim - 1
-        if shifted_up_out < dim and shifted_up_inp < dim and dim > 0 and shell_dim > 1:
+        dim = shell_dim - 2
+        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
             idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_m = (num_spins + 2 * spin_val + 2) / (spin_val * (2 * spin_val + 1))
-            _B_lft = _coef_B(op_lft, spin_val, proj_out)
-            _B_rht = _coef_B(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_m * _B_lft * _B_rht
+            coef_S = _get_coef_S(num_spins, spin_val, -1)
+            coef_B_lft = _get_coef_B(op_lft, spin_val, proj_out)
+            coef_B_rht = _get_coef_B(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_S * coef_B_lft * coef_B_rht
 
-        dim = shell_dim + 1
-        if shifted_up_out < dim and shifted_up_inp < dim and dim <= num_spins + 1:
+        dim = shell_dim + 2
+        if shifted_up_out < dim and shifted_up_inp < dim and 0 < dim <= num_spins + 1:
             idx_out = get_spin_basis_index(dim, shifted_up_out, shifted_up_inp)
-            coef_p = (num_spins - 2 * spin_val) / (2 * spin_val**2 + 3 * spin_val + 1)
-            _D_lft = _coef_D(op_lft, spin_val, proj_out)
-            _D_rht = _coef_D(op_rht, spin_val, proj_inp)
-            mat[idx_out, idx_inp] = coef_p * _D_lft * _D_rht / 4
+            coef_S = _get_coef_S(num_spins, spin_val, 1)
+            coef_D_lft = _get_coef_D(op_lft, spin_val, proj_out)
+            coef_D_rht = _get_coef_D(op_rht, spin_val, proj_inp)
+            mat[idx_out, idx_inp] = coef_S * coef_D_lft * coef_D_rht
 
     mat = mat.tocsr()
     mat.eliminate_zeros()
@@ -221,7 +221,32 @@ def _proj_shift(shift: Literal["z", "+", "-"]) -> float:
     return 0
 
 
-def _coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
+def _coef_dim(num_spins: int, spin_val: float) -> int:
+    binom_factor = scipy.special.comb(num_spins, num_spins / 2 + spin_val, exact=True)
+    return binom_factor * int(2 * spin_val + 1) / int(num_spins / 2 + spin_val + 1)
+
+
+def _coef_alpha(num_spins: int, spin_val: float) -> int:
+    return sum(
+        _coef_dim(num_spins, other_spin_val)
+        for other_spin_val in np.arange(spin_val, num_spins / 2 + 1)
+    )
+
+
+def _get_coef_S(num_spins: int, spin_val: float, spin_shift: Literal[0, 1, -1]) -> float:
+    if spin_shift == 0:
+        ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
+        return (1 + ratio * (2 * spin_val + 1) / (spin_val + 1)) / (2 * spin_val)
+    elif spin_shift == -1:
+        ratio = _coef_alpha(num_spins, spin_val) / _coef_dim(num_spins, spin_val)
+        return ratio / (2 * spin_val)
+    else:
+        assert spin_shift == 1
+        ratio = _coef_alpha(num_spins, spin_val + 1) / _coef_dim(num_spins, spin_val)
+        return ratio / (2 * (spin_val + 1))
+
+
+def _get_coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return np.sqrt((spin_val - spin_proj) * (spin_val + spin_proj + 1))
     if op == "-":
@@ -229,7 +254,7 @@ def _coef_A(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> fl
     return spin_proj
 
 
-def _coef_B(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
+def _get_coef_B(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return np.sqrt((spin_val - spin_proj) * (spin_val - spin_proj - 1))
     if op == "-":
@@ -237,7 +262,7 @@ def _coef_B(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> fl
     return np.sqrt((spin_val + spin_proj) * (spin_val - spin_proj))
 
 
-def _coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
+def _get_coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -> float:
     if op == "+":
         return -np.sqrt((spin_val + spin_proj + 1) * (spin_val + spin_proj + 2))
     if op == "-":
