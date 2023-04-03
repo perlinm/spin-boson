@@ -100,7 +100,7 @@ def get_dual(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
 
 
 def get_Sz_L(num_spins: int) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on a density matrix `rho` as `O(rho) = S_z @ rho`."""
+    """Compute the superoporator `O` that acts on a density matrix `rho` as `O(rho) = S_z rho`."""
     vals = [
         up_out - (shell_dim - 1) / 2
         for _, shell_dim, up_out, _ in spin_op_basis_elements(num_spins)
@@ -110,7 +110,7 @@ def get_Sz_L(num_spins: int) -> scipy.sparse.spmatrix:
 
 
 def get_Sp_L(num_spins: int) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_p @ rho`."""
+    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_p rho`."""
     dim = get_spin_op_dim(num_spins)
     mat = scipy.sparse.dok_array((dim, dim), dtype=float)
     for idx_inp, shell_dim, up_out, up_inp in spin_op_basis_elements(num_spins):
@@ -126,7 +126,7 @@ def get_Sp_L(num_spins: int) -> scipy.sparse.spmatrix:
 
 
 def get_Sm_L(num_spins: int) -> scipy.sparse.spmatrix:
-    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_m @ rho`."""
+    """Compute the superoporator `O` that acts on density matrix `rho` as `O(rho) = S_m rho`."""
     return get_Sp_L(num_spins).T
 
 
@@ -299,20 +299,21 @@ def get_ghz_state(num_spins: int) -> np.ndarray:
     """Prepare a GHZ state of the given number of spins."""
     if num_spins == 0:
         return np.ones(1)
+    shell_dim = num_spins + 1
     state = np.zeros(get_spin_op_dim(num_spins))
     # set matrix elements to 0.5 within the S = N/2 manifold:
     #   |0><0|, |0><N|, |N><0|, |N><N|,
     # where |M> is the Dicke state with M excitations
-    shell_start = -((num_spins + 1) ** 2)
+    shell_start = -(shell_dim**2)
     state[shell_start] = 0.5
     state[shell_start + num_spins] = 0.5
-    state[-1 - num_spins] = 0.5
+    state[-shell_dim] = 0.5
     state[-1] = 0.5
     return state
 
 
 def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
-    """Iterate over the fixed-S blocks of a vectorized density matrix."""
+    """Iterate over the fixed-S blocks of a density matrix."""
     spin_op_dim = state.shape[0]
     num_spins = get_num_spins(spin_op_dim)
     shell_start = 0
@@ -336,6 +337,7 @@ def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
 
 
 def get_spin_trace(op: np.ndarray) -> np.ndarray:
+    """Preform a partial trace over an operator's spin degrees of freedom."""
     num_spins = get_num_spins(op.shape[0])
     shell_dims = range(num_spins % 2 + 1, num_spins + 2, 2)
     return sum(
