@@ -9,7 +9,7 @@ from typing import Sequence
 
 import numpy as np
 
-import methods
+import methods_PS as methods
 
 
 def get_data_dir(data_dir: str, state_key: str) -> str:
@@ -25,8 +25,8 @@ def get_file_path(
 
 get_initial_state = {
     "ghz": methods.get_ghz_state,
-    "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1),
-    "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2),
+    "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1, boson_dim=2),
+    "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2, boson_dim=3),
 }
 
 
