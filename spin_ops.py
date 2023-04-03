@@ -314,24 +314,33 @@ def get_ghz_state(num_spins: int) -> np.ndarray:
 
 def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
     """Iterate over the fixed-S blocks of a vectorized density matrix."""
-    num_spins = get_num_spins(state.shape[0])
+    spin_op_dim = state.shape[0]
+    num_spins = get_num_spins(spin_op_dim)
     shell_start = 0
     shell_dim = num_spins % 2 + 1
-    while shell_start < state.shape[0]:
+    while shell_start < spin_op_dim:
         block_size = shell_dim**2
         block_slice = slice(shell_start, shell_start + block_size)
-        block_shape = (shell_dim, shell_dim) + state.shape[2:]
-        yield state[block_slice].reshape(block_shape)
+        block_data = state[block_slice]
+
+        tensor_shape = (shell_dim, shell_dim) + state.shape[1:]
+        matrix_dim = int(np.round(np.sqrt(block_data.size)))
+        matrix_shape = (matrix_dim, matrix_dim)
+        yield np.moveaxis(
+            block_data.reshape(tensor_shape),
+            range(0, len(tensor_shape), 2),
+            range(len(tensor_shape) // 2),
+        ).reshape(matrix_shape)
 
         shell_start += block_size
         shell_dim += 2
 
 
-def get_spin_trace(spin_op: np.ndarray) -> np.ndarray:
-    num_spins = get_num_spins(spin_op.shape[0])
+def get_trace(op: np.ndarray) -> np.ndarray:
+    num_spins = get_num_spins(op.shape[0])
     shell_dims = range(num_spins % 2 + 1, num_spins + 2, 2)
     return sum(
-        spin_op[get_spin_basis_index(shell_dim, num, num)]
+        op[get_spin_basis_index(shell_dim, num, num)].trace()
         for shell_dim in shell_dims
         for num in range(shell_dim)
     )

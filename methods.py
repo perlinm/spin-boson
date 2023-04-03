@@ -178,7 +178,7 @@ def get_states(
 # Fisher info calculation
 
 
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL):
+def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL) -> float:
     vals, vecs = np.linalg.eigh(state)
 
     # numerators and denominators
@@ -190,7 +190,7 @@ def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETO
 
 
 def get_QFI_vals(
-    times: Sequence[float],
+    times: Sequence[float] | np.ndarray,
     num_spins: int,
     splitting: float,
     coupling: float,
@@ -202,7 +202,7 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     etol: float = DEFAULT_ETOL,
     diff_step: float = DEFAULT_DIFF_STEP,
-):
+) -> tuple[np.ndarray, np.ndarray]:
     hamiltonian_p = get_hamiltonian(num_spins, splitting, coupling + diff_step / 2)
     hamiltonian_m = get_hamiltonian(num_spins, splitting, coupling - diff_step / 2)
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
@@ -223,4 +223,4 @@ def get_QFI_vals(
         vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
         vals_QFI_SA[tt] = np.real(1 - state_avg[0, 0]) * vals_QFI[tt]
 
-    return times, vals_QFI, vals_QFI_SA
+    return vals_QFI, vals_QFI_SA

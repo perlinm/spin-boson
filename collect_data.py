@@ -44,7 +44,7 @@ def compute_QFI_vals(
     if status_update:
         print(os.path.relpath(file_QFI))
         sys.stdout.flush()
-    times, vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
+    vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
         times,
         num_spins,
         splitting,

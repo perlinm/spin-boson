@@ -58,8 +58,8 @@ def test_spin_evolution() -> None:
     for num_spins in range(1, MAX_NUM_SPINS):
 
         # simulate with qutip
-        initial_state = qutip.ket2dm(methods.get_all_down_state(num_spins))
         collective_ops = get_collective_ops_qutip(num_spins)
+        initial_state = qutip.ket2dm(methods.get_all_down_state(num_spins))
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         jump_ops = get_jump_ops_qutip(num_spins, kraus_vec)
         states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
@@ -70,14 +70,14 @@ def test_spin_evolution() -> None:
         ]
 
         # simulate with PS methods
-        initial_state = spin_ops.get_spin_vacuum(num_spins)
         collective_ops = get_collective_ops_PS(num_spins)
+        initial_state = spin_ops.get_spin_vacuum(num_spins)
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         dissipator = get_dissipator_PS(num_spins, kraus_vec)
         generator = -1j * (hamiltonian - spin_ops.get_dual(hamiltonian)) + dissipator
         states = methods_PS.get_states(times, initial_state, generator)
         vals_PS = [
-            spin_ops.get_spin_trace(collective_op @ state).real
+            spin_ops.get_trace(collective_op @ state).real
             for collective_op in collective_ops
             for state in states
         ]
@@ -86,4 +86,47 @@ def test_spin_evolution() -> None:
 
 
 def test_spin_boson_evolution() -> None:
-    ...
+    times = np.linspace(0, 5, 20)
+    splitting = np.random.random()
+    coupling = np.random.random()
+    decay_res = np.random.random()
+    decay_spin = np.random.random()
+    args = (splitting, coupling, decay_res, decay_spin)
+
+    for num_spins in range(1, MAX_NUM_SPINS):
+
+        # simulate with qutip
+        collective_ops = get_collective_ops_qutip(num_spins)
+        initial_state = methods.get_ghz_state(num_spins)
+        hamiltonian = methods.get_hamiltonian(num_spins, splitting, coupling)
+        jump_ops = methods.get_jump_ops(num_spins, decay_res, decay_spin)
+        states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
+        vals = [
+            (collective_op.data.conj().toarray().ravel() @ state.ravel()).real
+            for collective_op in collective_ops
+            for state in states
+        ]
+
+        # simulate with PS methods
+        boson_dim = num_spins + 1
+        boson_op_dim = boson_dim**2
+        spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+        collective_ops_PS = tuple(
+            scipy.sparse.kron(spin_op, scipy.sparse.identity(boson_op_dim))
+            for spin_op in get_collective_ops_PS(num_spins)
+        )
+        boson_vacuum = np.zeros(boson_op_dim)
+        boson_vacuum[0] = 1
+        initial_state_PS = np.kron(spin_ops.get_ghz_state(num_spins), boson_vacuum)
+        hamiltonian_generator = methods_PS.get_hamiltonian_generator(num_spins, splitting, coupling)
+        dissipator = methods_PS.get_dissipator(num_spins, decay_res, decay_spin)
+        generator = hamiltonian_generator + dissipator
+        states = methods_PS.get_states(times, initial_state_PS, generator)
+        shape = (spin_op_dim, boson_dim, boson_dim)
+        vals_PS = [
+            spin_ops.get_trace((collective_op @ state).reshape(shape))
+            for collective_op in collective_ops_PS
+            for state in states
+        ]
+
+        assert np.allclose(vals, vals_PS)

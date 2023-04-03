@@ -1,3 +1,4 @@
+import functools
 from typing import Optional, Sequence
 
 import numpy as np
@@ -72,7 +73,28 @@ def get_hamiltonian_generator(
     coupling_term = coupling_op + coupling_op.T
 
     hamiltonian_bracket = splitting * (spin_term + cavity_term) + coupling * coupling_term
-    return -1j * 2 * np.pi * hamiltonian_bracket
+    return -1j * hamiltonian_bracket
+
+
+def get_dissipator(
+    num_spins: int,
+    decay_res: float,
+    decay_spin: float,
+    *,
+    boson_dim: Optional[int] = None,
+) -> scipy.sparse.spmatrix:
+    if not boson_dim:
+        boson_dim = num_spins + 1
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    dissipator_res = scipy.sparse.kron(
+        scipy.sparse.identity(spin_op_dim),
+        to_dissipation_generator(get_boson_lower_op(num_spins + 1)),
+    )
+    dissipator_spin = scipy.sparse.kron(
+        spin_ops.get_local_dissipator(num_spins, "-"),
+        scipy.sparse.identity(boson_dim**2),
+    )
+    return decay_res * dissipator_res + decay_spin * dissipator_spin
 
 
 def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
@@ -124,7 +146,7 @@ def _get_block_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFA
     return (nums[include] / dens[include]).sum()
 
 
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL):
+def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL) -> float:
     return sum(
         _get_block_QFI(block, block_diff, etol)
         for block, block_diff in zip(
@@ -135,7 +157,7 @@ def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETO
 
 
 def get_QFI_vals(
-    times: Sequence[float],
+    times: Sequence[float] | np.ndarray,
     num_spins: int,
     splitting: float,
     coupling: float,
@@ -147,24 +169,18 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     etol: float = DEFAULT_ETOL,
     diff_step: float = DEFAULT_DIFF_STEP,
-):
+) -> tuple[np.ndarray, np.ndarray]:
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    boson_dim = num_spins + 1
+
     hamiltonian_p = get_hamiltonian_generator(num_spins, splitting, coupling + diff_step / 2)
     hamiltonian_m = get_hamiltonian_generator(num_spins, splitting, coupling - diff_step / 2)
-
-    dissipator_res = np.kron(
-        scipy.sparse.identity(spin_ops.get_spin_op_dim(num_spins)),
-        to_dissipation_generator(get_boson_lower_op(num_spins + 1)),
-    )
-    dissipator_spin = spin_ops.get_local_dissipator(num_spins, "-")
-    dissipator = decay_res * dissipator_res + decay_spin * dissipator_spin
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin)
 
     def _get_states(hamiltonian: scipy.sparse.spmatrix) -> np.ndarray:
         generator = hamiltonian + dissipator
         return get_states(times, initial_state, generator, method, rtol, atol)
 
-    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
-    boson_op_dim = dissipator.shape[0] // (len(times) * spin_op_dim)
-    boson_dim = int(np.round(np.sqrt(boson_op_dim)))
     shape = (len(times), spin_op_dim, boson_dim, boson_dim)
     states_p = _get_states(hamiltonian_p).reshape(shape)
     states_m = _get_states(hamiltonian_m).reshape(shape)
@@ -180,4 +196,4 @@ def get_QFI_vals(
         vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
         vals_QFI_SA[tt] = np.real(1 - state_avg[vacuum_index]) * vals_QFI[tt]
 
-    return times, vals_QFI, vals_QFI_SA
+    return vals_QFI, vals_QFI_SA
