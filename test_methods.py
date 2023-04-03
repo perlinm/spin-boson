@@ -1,4 +1,4 @@
-from typing import Literal, Sequence
+from typing import Literal, Optional, Sequence
 
 import numpy as np
 import qutip
@@ -11,23 +11,31 @@ import spin_ops
 MAX_NUM_SPINS = 5
 
 
-def get_collective_ops_qutip(num_spins: int) -> tuple[qutip.Qobj, qutip.Qobj, qutip.Qobj]:
-    return (
+def get_collective_ops_qutip(
+    num_spins: int, *, boson_dim: Optional[int] = None
+) -> tuple[qutip.Qobj, ...]:
+    ops = (
         methods.collective_qubit_op(qutip.sigmaz(), num_spins) / 2,
         methods.collective_qubit_op(qutip.sigmax(), num_spins) / 2,
         methods.collective_qubit_op(qutip.sigmay(), num_spins) / 2,
     )
+    if boson_dim is None:
+        return ops
+    return tuple(qutip.tensor(op, qutip.qeye(boson_dim)) for op in ops)
 
 
 def get_collective_ops_PS(
-    num_spins: int,
-) -> tuple[scipy.sparse.spmatrix, scipy.sparse.spmatrix, scipy.sparse.spmatrix]:
+    num_spins: int, *, boson_dim: Optional[int] = None
+) -> tuple[scipy.sparse.spmatrix, ...]:
     op_Sz = spin_ops.get_Sz_L(num_spins)
     op_Sp = spin_ops.get_Sp_L(num_spins)
     op_Sm = spin_ops.get_Sm_L(num_spins)
     op_Sx = (op_Sp + op_Sm) / 2
     op_Sy = (op_Sp - op_Sm) / 2j
-    return op_Sz, op_Sx, op_Sy
+    ops = (op_Sz, op_Sx, op_Sy)
+    if boson_dim is None:
+        return ops
+    return tuple(scipy.sparse.kron(op, scipy.sparse.identity(boson_dim**2)) for op in ops)
 
 
 def get_jump_ops_qutip(
@@ -59,10 +67,11 @@ def test_spin_evolution() -> None:
 
         # simulate with qutip
         collective_ops = get_collective_ops_qutip(num_spins)
-        initial_state = qutip.ket2dm(methods.get_vacuum_state(num_spins))
+        initial_state = qutip.ket2dm(methods.get_spin_vacuum_state(num_spins))
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         jump_ops = get_jump_ops_qutip(num_spins, kraus_vec)
         states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
+
         vals = [
             (collective_op.data.conj().toarray().ravel() @ state.ravel()).real
             for collective_op in collective_ops
@@ -76,6 +85,7 @@ def test_spin_evolution() -> None:
         dissipator = get_dissipator_PS(num_spins, kraus_vec)
         generator = -1j * (hamiltonian - spin_ops.get_dual(hamiltonian)) + dissipator
         states = methods_PS.get_states(times, initial_state, generator)
+
         vals_PS = [
             spin_ops.get_spin_trace(collective_op @ state).real
             for collective_op in collective_ops
@@ -94,46 +104,42 @@ def test_spin_boson_evolution() -> None:
     args = (splitting, coupling, decay_res, decay_spin)
 
     for num_spins in range(1, MAX_NUM_SPINS):
+        boson_dim = num_spins + 1
 
         # simulate with qutip
-        collective_ops = get_collective_ops_qutip(num_spins)
+        collective_ops = get_collective_ops_qutip(num_spins, boson_dim=boson_dim)
         initial_state = methods.get_ghz_state(num_spins)
         hamiltonian = methods.get_hamiltonian(num_spins, splitting, coupling)
         jump_ops = methods.get_jump_ops(num_spins, decay_res, decay_spin)
         states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
+
         vals = [
             (collective_op.data.conj().toarray().ravel() @ state.ravel()).real
             for collective_op in collective_ops
             for state in states
         ]
+        vals_QFI, vals_QFI_SA = methods.get_QFI_vals(times, num_spins, *args, initial_state)
 
         # simulate with PS methods
-        boson_dim = num_spins + 1
-        boson_op_dim = boson_dim**2
-        spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
-        collective_ops_PS = tuple(
-            scipy.sparse.kron(spin_op, scipy.sparse.identity(boson_op_dim))
-            for spin_op in get_collective_ops_PS(num_spins)
-        )
-        boson_vacuum = np.zeros(boson_op_dim)
+        collective_ops_PS = get_collective_ops_PS(num_spins, boson_dim=boson_dim)
+        boson_vacuum = np.zeros(boson_dim**2)
         boson_vacuum[0] = 1
-        initial_state_PS = np.kron(spin_ops.get_ghz_state(num_spins), boson_vacuum)
+        initial_state = np.kron(spin_ops.get_ghz_state(num_spins), boson_vacuum)
         hamiltonian_generator = methods_PS.get_hamiltonian_generator(num_spins, splitting, coupling)
         dissipator = methods_PS.get_dissipator(num_spins, decay_res, decay_spin)
         generator = hamiltonian_generator + dissipator
-        states = methods_PS.get_states(times, initial_state_PS, generator)
-        shape = (spin_op_dim, boson_dim, boson_dim)
+        states = methods_PS.get_states(times, initial_state, generator)
+
+        shape = (-1, boson_dim, boson_dim)
         vals_PS = [
             spin_ops.get_spin_trace((collective_op @ state).reshape(shape)).trace()
             for collective_op in collective_ops_PS
             for state in states
         ]
+        vals_QFI_PS, vals_QFI_SA_PS = methods_PS.get_QFI_vals(
+            times, num_spins, *args, initial_state
+        )
 
         assert np.allclose(vals, vals_PS)
-
-        vals_QFI, vals_QFI_SA = methods.get_QFI_vals(times, num_spins, *args, initial_state)
-        vals_QFI_PS, vals_QFI_SA_PS = methods_PS.get_QFI_vals(
-            times, num_spins, *args, initial_state_PS
-        )
         assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-6)
         assert np.allclose(vals_QFI_SA, vals_QFI_SA_PS, atol=1e-6)

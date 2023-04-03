@@ -60,19 +60,19 @@ def collective_Sz(num_spins: int) -> qutip.Qobj:
 # state definitions
 
 
-def _spin_vacuum_state(num_spins: int) -> qutip.Qobj:
+def get_spin_vacuum_state(num_spins: int) -> qutip.Qobj:
     states = [qutip.fock(2, 1)] * num_spins
     return qutip.tensor(*states)
 
 
 @_with_default_boson_dim
 def get_vacuum_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
-    return qutip.tensor(_spin_vacuum_state(num_spins), qutip.fock(boson_dim, 0))
+    return qutip.tensor(get_spin_vacuum_state(num_spins), qutip.fock(boson_dim, 0))
 
 
 @_with_default_boson_dim
 def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qutip.Qobj:
-    spin_state = _spin_vacuum_state(num_spins)
+    spin_state = get_spin_vacuum_state(num_spins)
     collective_Sp = collective_raise(num_spins)
     for _ in range(num_excitations):
         spin_state = collective_Sp * spin_state
