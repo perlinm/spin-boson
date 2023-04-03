@@ -336,11 +336,11 @@ def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
         shell_dim += 2
 
 
-def get_trace(op: np.ndarray) -> np.ndarray:
+def get_spin_trace(op: np.ndarray) -> np.ndarray:
     num_spins = get_num_spins(op.shape[0])
     shell_dims = range(num_spins % 2 + 1, num_spins + 2, 2)
     return sum(
-        op[get_spin_basis_index(shell_dim, num, num)].trace()
+        op[get_spin_basis_index(shell_dim, num, num)]
         for shell_dim in shell_dims
         for num in range(shell_dim)
     )

@@ -194,6 +194,6 @@ def get_QFI_vals(
         state_diff = (state_p - state_m) / diff_step
 
         vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
-        vals_QFI_SA[tt] = np.real(1 - state_avg[vacuum_index]) * vals_QFI[tt]
+        vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
 
     return vals_QFI, vals_QFI_SA

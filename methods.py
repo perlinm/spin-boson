@@ -216,11 +216,14 @@ def get_QFI_vals(
     # compute the QFI
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
+    vacuum_state = (1,) * num_spins + (0,)
+    dims = (2,) * num_spins + (num_spins + 1,)
+    vacuum_index = (np.ravel_multi_index(vacuum_state, dims),) * 2
     for tt, (state_p, state_m) in enumerate(zip(states_p, states_m)):
         state_avg = (state_p + state_m) / 2
         state_diff = (state_p - state_m) / diff_step
 
         vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
-        vals_QFI_SA[tt] = np.real(1 - state_avg[0, 0]) * vals_QFI[tt]
+        vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
 
     return vals_QFI, vals_QFI_SA

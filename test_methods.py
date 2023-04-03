@@ -77,7 +77,7 @@ def test_spin_evolution() -> None:
         generator = -1j * (hamiltonian - spin_ops.get_dual(hamiltonian)) + dissipator
         states = methods_PS.get_states(times, initial_state, generator)
         vals_PS = [
-            spin_ops.get_trace(collective_op @ state).real
+            spin_ops.get_spin_trace(collective_op @ state).real
             for collective_op in collective_ops
             for state in states
         ]
@@ -124,9 +124,16 @@ def test_spin_boson_evolution() -> None:
         states = methods_PS.get_states(times, initial_state_PS, generator)
         shape = (spin_op_dim, boson_dim, boson_dim)
         vals_PS = [
-            spin_ops.get_trace((collective_op @ state).reshape(shape))
+            spin_ops.get_spin_trace((collective_op @ state).reshape(shape)).trace()
             for collective_op in collective_ops_PS
             for state in states
         ]
 
         assert np.allclose(vals, vals_PS)
+
+        vals_QFI, vals_QFI_SA = methods.get_QFI_vals(times, num_spins, *args, initial_state)
+        vals_QFI_PS, vals_QFI_SA_PS = methods_PS.get_QFI_vals(
+            times, num_spins, *args, initial_state_PS
+        )
+        assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-6)
+        assert np.allclose(vals_QFI_SA, vals_QFI_SA_PS, atol=1e-6)
