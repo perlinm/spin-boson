@@ -5,7 +5,7 @@ import multiprocessing
 import os
 import sys
 import time
-from typing import Sequence
+from typing import Callable, Dict, Sequence
 
 import numpy as np
 
@@ -23,7 +23,7 @@ def get_file_path(
     return os.path.join(data_dir, f"{prefix}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}.txt")
 
 
-get_initial_state = {
+get_initial_state: Dict[str, Callable[[int], np.ndarray]] = {
     "ghz": methods.get_ghz_state,
     "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1, boson_dim=2),
     "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2, boson_dim=3),
