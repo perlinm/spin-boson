@@ -1,5 +1,4 @@
-import functools
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 import numpy as np
 import scipy
@@ -109,6 +108,28 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
     op_JJ = jump_op.conj().T @ jump_op
     recycling_term = scipy.sparse.kron(op_JJ, identity) + scipy.sparse.kron(identity, op_JJ.T)
     return direct_term - recycling_term / 2
+
+
+################################################################################
+# state definitions
+
+
+def _with_boson_vacuum(get_spin_state: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
+    """Turn spin-state constructors into spin-boson-state constructors."""
+
+    def get_state(num_spins: int, *args, boson_dim: Optional[int] = None):
+        if boson_dim is None:
+            boson_dim = num_spins + 1
+        boson_vacuum = np.zeros(boson_dim)
+        boson_vacuum[0] = 1
+        return np.kron(get_spin_state(num_spins, *args), boson_vacuum)
+
+    return get_state
+
+
+get_vacuum_state = _with_boson_vacuum(spin_ops.get_vacuum_state)
+get_dicke_state = _with_boson_vacuum(spin_ops.get_dicke_state)
+get_ghz_state = _with_boson_vacuum(spin_ops.get_ghz_state)
 
 
 ################################################################################

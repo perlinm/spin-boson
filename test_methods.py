@@ -59,7 +59,7 @@ def test_spin_evolution() -> None:
 
         # simulate with qutip
         collective_ops = get_collective_ops_qutip(num_spins)
-        initial_state = qutip.ket2dm(methods.get_all_down_state(num_spins))
+        initial_state = qutip.ket2dm(methods.get_vacuum_state(num_spins))
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         jump_ops = get_jump_ops_qutip(num_spins, kraus_vec)
         states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
@@ -71,7 +71,7 @@ def test_spin_evolution() -> None:
 
         # simulate with PS methods
         collective_ops = get_collective_ops_PS(num_spins)
-        initial_state = spin_ops.get_spin_vacuum(num_spins)
+        initial_state = spin_ops.get_dicke_state(num_spins, 0)
         hamiltonian = sum(coef * op for coef, op in zip(ham_vec, collective_ops))
         dissipator = get_dissipator_PS(num_spins, kraus_vec)
         generator = -1j * (hamiltonian - spin_ops.get_dual(hamiltonian)) + dissipator

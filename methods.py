@@ -57,13 +57,13 @@ def resonator_num_op(num_spins: int) -> qutip.Qobj:
 # state definitions
 
 
-def get_all_down_state(num_spins: int) -> qutip.Qobj:
+def get_vacuum_state(num_spins: int) -> qutip.Qobj:
     states = [qutip.fock(2, 1)] * num_spins + [qutip.fock(num_spins + 1, 0)]
     return qutip.tensor(*states)
 
 
 def get_dicke_state(num_spins: int, num_excitations: int) -> qutip.Qobj:
-    state = get_all_down_state(num_spins)
+    state = get_vacuum_state(num_spins)
     for _ in range(num_excitations):
         state = collective_raise(num_spins) * state
     return state / np.linalg.norm(state)

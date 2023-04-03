@@ -279,8 +279,7 @@ def _get_coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -
 # methods to construct spin states
 
 
-def get_spin_vacuum(num_spins: int) -> np.ndarray:
-    """Prepare a spin-down-polarized state."""
+def get_vacuum_state(num_spins: int) -> np.ndarray:
     return get_dicke_state(num_spins, 0)
 
 
