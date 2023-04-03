@@ -1,5 +1,5 @@
 import functools
-from typing import Sequence
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
 import numpy as np
 import qutip
@@ -11,12 +11,27 @@ DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgerat
 DEFAULT_ATOL = 1e-12
 DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
 
+
+ReturnType = TypeVar("ReturnType")
+
+
+def _with_default_boson_dim(spin_func: Callable[..., ReturnType]) -> Callable[..., ReturnType]:
+    """Infer a default boson dimension."""
+
+    def get_state(num_spins: int, *args: Any, boson_dim: Optional[int] = None) -> ReturnType:
+        if boson_dim is None:
+            boson_dim = num_spins + 1
+        return spin_func(num_spins, *args, boson_dim=boson_dim)
+
+    return get_state
+
+
 ################################################################################
-# operator definitions
+# spin operator definitions
 
 
 def act_on(op: qutip.Qobj, target_index: int, num_spins: int) -> qutip.Qobj:
-    ops = [qutip.qeye(2)] * num_spins + [qutip.qeye(num_spins + 1)]
+    ops = [qutip.qeye(2)] * num_spins
     ops[target_index] = op
     return qutip.tensor(*ops)
 
@@ -41,36 +56,33 @@ def collective_Sz(num_spins: int) -> qutip.Qobj:
     return collective_qubit_op(qutip.sigmaz(), num_spins) / 2
 
 
-def act_on_resonator(op: qutip.Qobj, num_spins: int) -> qutip.Qobj:
-    return act_on(op, -1, num_spins)
-
-
-def resonator_lower(num_spins: int) -> qutip.Qobj:
-    return act_on_resonator(qutip.destroy(num_spins + 1), num_spins)
-
-
-def resonator_num_op(num_spins: int) -> qutip.Qobj:
-    return act_on_resonator(qutip.num(num_spins + 1), num_spins)
-
-
 ################################################################################
 # state definitions
 
 
-def get_vacuum_state(num_spins: int) -> qutip.Qobj:
-    states = [qutip.fock(2, 1)] * num_spins + [qutip.fock(num_spins + 1, 0)]
+def _spin_vacuum_state(num_spins: int) -> qutip.Qobj:
+    states = [qutip.fock(2, 1)] * num_spins
     return qutip.tensor(*states)
 
 
-def get_dicke_state(num_spins: int, num_excitations: int) -> qutip.Qobj:
-    state = get_vacuum_state(num_spins)
+@_with_default_boson_dim
+def get_vacuum_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
+    return qutip.tensor(_spin_vacuum_state(num_spins), qutip.fock(boson_dim, 0))
+
+
+@_with_default_boson_dim
+def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qutip.Qobj:
+    spin_state = _spin_vacuum_state(num_spins)
+    collective_Sp = collective_raise(num_spins)
     for _ in range(num_excitations):
-        state = collective_raise(num_spins) * state
-    return state / np.linalg.norm(state)
+        spin_state = collective_Sp * spin_state
+    spin_state = spin_state / np.linalg.norm(spin_state)
+    return qutip.tensor(spin_state, qutip.fock(boson_dim, 0))
 
 
-def get_ghz_state(num_spins: int) -> qutip.Qobj:
-    return qutip.tensor(qutip.ghz_state(num_spins), qutip.fock(num_spins + 1, 0))
+@_with_default_boson_dim
+def get_ghz_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
+    return qutip.tensor(qutip.ghz_state(num_spins), qutip.fock(boson_dim, 0))
 
 
 ################################################################################
@@ -78,19 +90,28 @@ def get_ghz_state(num_spins: int) -> qutip.Qobj:
 
 
 @functools.cache
-def get_hamiltonian(num_spins: int, splitting: float, coupling: float) -> qutip.Qobj:
-    spin_term = splitting * collective_Sz(num_spins)
-    resonator_term = splitting * resonator_num_op(num_spins)
-    coupling_op = resonator_lower(num_spins) * collective_raise(num_spins)
-    coupling_term = coupling * (coupling_op + coupling_op.dag())
-    return spin_term + resonator_term + coupling_term
+@_with_default_boson_dim
+def get_hamiltonian(
+    num_spins: int, splitting: float, coupling: float, boson_dim: int
+) -> qutip.Qobj:
+    spin_term = qutip.tensor(collective_Sz(num_spins), qutip.qeye(boson_dim))
+    resonator_term = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.num(boson_dim))
+    coupling_op = qutip.tensor(collective_raise(num_spins), qutip.destroy(boson_dim))
+    coupling_term = coupling_op + coupling_op.dag()
+    return splitting * (spin_term + resonator_term) + coupling * coupling_term
 
 
 @functools.cache
-def get_jump_ops(num_spins: int, decay_res: float, decay_spin: float) -> list[qutip.Qobj]:
-    ops = [np.sqrt(decay_spin) * qubit_lower(num_spins, ss) for ss in range(num_spins)]
-    ops.append(np.sqrt(decay_res) * resonator_lower(num_spins))
-    return ops
+@_with_default_boson_dim
+def get_jump_ops(
+    num_spins: int, decay_res: float, decay_spin: float, boson_dim: int
+) -> list[qutip.Qobj]:
+    qubit_ops = [
+        np.sqrt(decay_spin) * qutip.tensor(qubit_lower(num_spins, ss), qutip.qeye(boson_dim))
+        for ss in range(num_spins)
+    ]
+    lower_res = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.destroy(boson_dim))
+    return qubit_ops + [np.sqrt(decay_res) * lower_res]
 
 
 @functools.cache
@@ -203,9 +224,14 @@ def get_QFI_vals(
     etol: float = DEFAULT_ETOL,
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> tuple[np.ndarray, np.ndarray]:
-    hamiltonian_p = get_hamiltonian(num_spins, splitting, coupling + diff_step / 2)
-    hamiltonian_m = get_hamiltonian(num_spins, splitting, coupling - diff_step / 2)
-    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin)
+    boson_dim = initial_state.shape[0] // 2**num_spins
+    hamiltonian_p = get_hamiltonian(
+        num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim
+    )
+    hamiltonian_m = get_hamiltonian(
+        num_spins, splitting, coupling - diff_step / 2, boson_dim=boson_dim
+    )
+    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
 
     def _get_states(hamiltonian: qutip.Qobj) -> np.ndarray:
         return get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
@@ -217,7 +243,7 @@ def get_QFI_vals(
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
     vacuum_state = (1,) * num_spins + (0,)
-    dims = (2,) * num_spins + (num_spins + 1,)
+    dims = (2,) * num_spins + (boson_dim,)
     vacuum_index = (np.ravel_multi_index(vacuum_state, dims),) * 2
     for tt, (state_p, state_m) in enumerate(zip(states_p, states_m)):
         state_avg = (state_p + state_m) / 2
