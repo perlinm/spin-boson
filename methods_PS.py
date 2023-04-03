@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 import scipy
@@ -10,6 +10,7 @@ DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
 DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgeration
 DEFAULT_ATOL = 1e-12
 DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
+
 
 ################################################################################
 # operator definitions
@@ -87,7 +88,7 @@ def get_dissipator(
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     dissipator_res = scipy.sparse.kron(
         scipy.sparse.identity(spin_op_dim),
-        to_dissipation_generator(get_boson_lower_op(num_spins + 1)),
+        to_dissipation_generator(get_boson_lower_op(boson_dim)),
     )
     dissipator_spin = scipy.sparse.kron(
         spin_ops.get_local_dissipator(num_spins, "-"),
@@ -192,11 +193,15 @@ def get_QFI_vals(
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> tuple[np.ndarray, np.ndarray]:
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
-    boson_dim = num_spins + 1
+    boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 
-    hamiltonian_p = get_hamiltonian_generator(num_spins, splitting, coupling + diff_step / 2)
-    hamiltonian_m = get_hamiltonian_generator(num_spins, splitting, coupling - diff_step / 2)
-    dissipator = get_dissipator(num_spins, decay_res, decay_spin)
+    hamiltonian_p = get_hamiltonian_generator(
+        num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim
+    )
+    hamiltonian_m = get_hamiltonian_generator(
+        num_spins, splitting, coupling - diff_step / 2, boson_dim=boson_dim
+    )
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
 
     def _get_states(hamiltonian: scipy.sparse.spmatrix) -> np.ndarray:
         generator = hamiltonian + dissipator
