@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
 import numpy as np
 import scipy
@@ -10,6 +10,20 @@ DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
 DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgeration
 DEFAULT_ATOL = 1e-12
 DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
+
+
+ReturnType = TypeVar("ReturnType")
+
+
+def _with_default_boson_dim(spin_func: Callable[..., ReturnType]) -> Callable[..., ReturnType]:
+    """Infer a default boson dimension."""
+
+    def get_state(num_spins: int, *args: Any, boson_dim: Optional[int] = None) -> ReturnType:
+        if boson_dim is None:
+            boson_dim = num_spins + 1
+        return spin_func(num_spins, *args, boson_dim=boson_dim)
+
+    return get_state
 
 
 ################################################################################
@@ -34,16 +48,14 @@ def get_boson_state(dim: int, index: int = 0) -> np.ndarray:
     return state
 
 
+@_with_default_boson_dim
 def get_hamiltonian_generator(
     num_spins: int,
     splitting: float,
     coupling: float,
     *,
-    boson_dim: Optional[int] = None,
+    boson_dim: int,
 ) -> scipy.sparse.spmatrix:
-    if boson_dim is None:
-        boson_dim = num_spins + 1
-
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     spin_iden = scipy.sparse.identity(spin_op_dim)
     boson_iden = scipy.sparse.identity(boson_dim)
@@ -76,15 +88,14 @@ def get_hamiltonian_generator(
     return -1j * hamiltonian_bracket
 
 
+@_with_default_boson_dim
 def get_dissipator(
     num_spins: int,
     decay_res: float,
     decay_spin: float,
     *,
-    boson_dim: Optional[int] = None,
+    boson_dim: int,
 ) -> scipy.sparse.spmatrix:
-    if not boson_dim:
-        boson_dim = num_spins + 1
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     dissipator_res = scipy.sparse.kron(
         scipy.sparse.identity(spin_op_dim),
@@ -118,9 +129,8 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
 def _with_boson_vacuum(get_spin_state: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
     """Turn spin-state constructors into spin-boson-state constructors."""
 
-    def get_state(num_spins: int, *args: Any, boson_dim: Optional[int] = None):
-        if boson_dim is None:
-            boson_dim = num_spins + 1
+    @_with_default_boson_dim
+    def get_state(num_spins: int, *args: Any, boson_dim: int):
         boson_vacuum = np.zeros(boson_dim**2)
         boson_vacuum[0] = 1
         return np.kron(get_spin_state(num_spins, *args), boson_vacuum)
