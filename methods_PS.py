@@ -118,10 +118,10 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
 def _with_boson_vacuum(get_spin_state: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
     """Turn spin-state constructors into spin-boson-state constructors."""
 
-    def get_state(num_spins: int, *args, boson_dim: Optional[int] = None):
+    def get_state(num_spins: int, *args: Any, boson_dim: Optional[int] = None):
         if boson_dim is None:
             boson_dim = num_spins + 1
-        boson_vacuum = np.zeros(boson_dim)
+        boson_vacuum = np.zeros(boson_dim**2)
         boson_vacuum[0] = 1
         return np.kron(get_spin_state(num_spins, *args), boson_vacuum)
 
