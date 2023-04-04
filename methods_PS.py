@@ -7,9 +7,12 @@ import spin_ops
 
 DEFAULT_INTEGRATION_METHOD = "DOP853"
 DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
-DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgeration
-DEFAULT_ATOL = 1e-12
-DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
+DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
+DEFAULT_ATOL = 1e-10
+
+# Set heuristic for identifying the numerical cutoff for eigenvalues of a density matrix.
+# Eigenvalues with magnitude < `abs(most_negative_eigenvalue) * DEFAULT_ETOL_SCALE` get set to 0.
+DEFAULT_ETOL_SCALE = 10  # heuristic for identifying
 
 
 ReturnType = TypeVar("ReturnType")
@@ -167,29 +170,13 @@ def get_states(
     return solution.y.T
 
 
-# def _get_block_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL):
-#     vals, vecs = np.linalg.eigh(state)
-
-#     # set small eigenvalues to zero
-#     etol = -vals.min() * 10
-#     vals[abs(vals) < etol] = 0
-
-#     # numerators and denominators
-#     nums = 2 * abs(vecs.conj().T @ state_diff @ vecs) ** 2
-#     dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
-
-#     include = ~np.isclose(dens, 0, atol=etol)  # matrix of booleans (True/False)
-#     if (nums[include] / dens[include]).sum() < 0:
-#         print(vals.min())
-#         print(etol)
-#         print((nums[include] / dens[include]).sum())
-#         exit()
-#     return (nums[include] / dens[include]).sum()
-
-
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL) -> float:
-    block_nums = []  # QFI numerators, organized by block
-    block_vals = []  # eigenvalues of the state (density operator)
+def get_QFI(
+    state: np.ndarray, state_diff: np.ndarray, etol_scale: float = DEFAULT_ETOL_SCALE
+) -> float:
+    """Compute the QFI from a state (density matrix) and its derivative."""
+    # collect data from each block of the density matrix
+    block_nums = []  # numerators in contributions to the QFI
+    block_vals = []  # eigenvalues of the state
 
     for block, block_diff in zip(
         spin_ops.get_spin_blocks(state),
@@ -199,50 +186,21 @@ def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETO
         block_vals.append(vals)
         block_nums.append(abs(vecs.conj().T @ block_diff @ vecs) ** 2)
 
-    block_vals = _apply_maximum_likelihood_corrections(block_vals)
+    # identify numerical cutoff for small eigenvalues, below which they get set to 0
+    etol = etol_scale * abs(min(val for vals in block_vals for val in vals))
 
     val_QFI = 0
     for vals, nums in zip(block_vals, block_nums):
+        vals[abs(vals) < etol] = 0
         dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
+
+        # matrix of booleans (True/False) to ignore zero eigenvalues
         include = ~np.isclose(dens, 0)  # matrix of booleans (True/False)
+
+        # add contribution to the QFI from this block of the density matrix
         val_QFI += (nums[include] / dens[include]).sum()
+
     return 2 * val_QFI
-
-    # return sum(
-    #     _get_block_QFI(block, block_diff, etol)
-    #     for block, block_diff in zip(
-    #         spin_ops.get_spin_blocks(state),
-    #         spin_ops.get_spin_blocks(state_diff),
-    #     )
-    # )
-
-
-def _apply_maximum_likelihood_corrections(block_vals: list[np.ndarray]) -> list[np.ndarray]:
-    """Apply maximum-likelihood corrections to the eigenvalues of a density matrix.
-
-    Strategy: eliminate negative eigenvalues one by one in order of decreasing magnitude, and
-    distribute their values among all other eigenvalues.
-    """
-    block_sizes = [vals.size for vals in block_vals]
-    eigenvalues = np.array([val for vals in block_vals for val in vals])
-    num_vals = eigenvalues.size
-
-    eigenvalue_order = np.argsort(eigenvalues)
-
-    sorted_eigenvalues = eigenvalues[eigenvalue_order]
-    for idx, val in enumerate(sorted_eigenvalues):
-        if val >= 0:
-            break
-        sorted_eigenvalues[idx] = 0
-        num_vals_remaining = num_vals - idx - 1
-        sorted_eigenvalues[idx + 1 :] += val / num_vals_remaining
-    inverse_sort = np.arange(num_vals)[np.argsort(eigenvalue_order)]
-    corrected_eigenvalues = sorted_eigenvalues[inverse_sort]
-
-    return [
-        corrected_eigenvalues[sum(block_sizes[:bb]) : sum(block_sizes[:bb]) + block_sizes[bb]]
-        for bb in range(len(block_sizes))
-    ]
 
 
 def get_QFI_vals(
@@ -256,7 +214,7 @@ def get_QFI_vals(
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
-    etol: float = DEFAULT_ETOL,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> tuple[np.ndarray, np.ndarray]:
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
@@ -286,7 +244,7 @@ def get_QFI_vals(
         state_avg = (state_p + state_m) / 2
         state_diff = (state_p - state_m) / diff_step
 
-        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
+        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol_scale)
         vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
 
     return vals_QFI, vals_QFI_SA
