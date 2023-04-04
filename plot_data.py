@@ -127,10 +127,11 @@ if __name__ == "__main__":
         ):
             plt.figure(figsize=figsize)
             plt.title(rf"$\kappa/g={kappa}$, $\gamma/g={gamma}$")
-            plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko")
-            plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo")
+            plt.plot(args.num_spins, vals_max[:, kk, gg, 0], "ko", label="QFI")
+            plt.plot(args.num_spins, vals_max[:, kk, gg, 1], "bo", label="QFI-SA")
             plt.xlabel("$N$")
             plt.ylabel(r"QFI $\times g^2$")
+            plt.legend(loc="best")
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_k{kappa:.2f}_g{gamma:.2f}.pdf"
@@ -143,10 +144,11 @@ if __name__ == "__main__":
         ):
             plt.figure(figsize=figsize)
             plt.title(rf"$N={num_spins}$, $\kappa/g={kappa}$, $\gamma/g={gamma}$")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-")
-            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--")
+            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][1], "k-", label="QFI")
+            plt.plot(vals_QFI[nn, kk, gg][0], vals_QFI[nn, kk, gg][2], "k--", label="QFI-SA")
             plt.xlabel(r"time $\times g$")
             plt.ylabel(r"QFI $\times g^2$")
+            plt.legend(loc="best")
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.2f}_g{gamma:.2f}.pdf"
