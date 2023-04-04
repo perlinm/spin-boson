@@ -7,9 +7,12 @@ import scipy
 
 DEFAULT_INTEGRATION_METHOD = "qutip"
 DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
-DEFAULT_RTOL = 1e-12  # relative/absolute error tolerance for numerical intgeration
-DEFAULT_ATOL = 1e-12
-DEFAULT_ETOL = np.sqrt(DEFAULT_DIFF_STEP * DEFAULT_ATOL)  # eigenvalue cutoff
+DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
+DEFAULT_ATOL = 1e-10
+
+# Set heuristic for identifying the numerical cutoff for eigenvalues of a density matrix.
+# Eigenvalues with magnitude < `abs(most_negative_eigenvalue) * DEFAULT_ETOL_SCALE` get set to 0.
+DEFAULT_ETOL_SCALE = 10  # heuristic for identifying
 
 
 ReturnType = TypeVar("ReturnType")
@@ -199,15 +202,23 @@ def get_states(
 # Fisher info calculation
 
 
-def get_QFI(state: np.ndarray, state_diff: np.ndarray, etol: float = DEFAULT_ETOL) -> float:
+def get_QFI(
+    state: np.ndarray, state_diff: np.ndarray, etol_scale: float = DEFAULT_ETOL_SCALE
+) -> float:
     vals, vecs = np.linalg.eigh(state)
 
+    # identify numerical cutoff for small eigenvalues, below which they get set to 0
+    etol = etol_scale * abs(min(vals))
+    vals[abs(vals) < etol] = 0
+
     # numerators and denominators
-    nums = 2 * abs(vecs.conj().T @ state_diff @ vecs) ** 2
+    nums = abs(vecs.conj().T @ state_diff @ vecs) ** 2
     dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
-    include = ~np.isclose(dens, 0, atol=etol)  # matrix of booleans (True/False)
-    return (nums[include] / dens[include]).sum()
+    # matrix of booleans (True/False) to ignore zero eigenvalues
+    include = ~np.isclose(dens, 0)  # matrix of booleans (True/False)
+
+    return 2 * (nums[include] / dens[include]).sum()
 
 
 def get_QFI_vals(
@@ -221,7 +232,7 @@ def get_QFI_vals(
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
-    etol: float = DEFAULT_ETOL,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> tuple[np.ndarray, np.ndarray]:
     boson_dim = initial_state.shape[0] // 2**num_spins
@@ -249,7 +260,7 @@ def get_QFI_vals(
         state_avg = (state_p + state_m) / 2
         state_diff = (state_p - state_m) / diff_step
 
-        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol)
+        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol_scale)
         vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
 
     return vals_QFI, vals_QFI_SA
