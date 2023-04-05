@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Sequence, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 import numpy as np
 import scipy
@@ -151,7 +151,7 @@ get_ghz_state = _with_boson_vacuum(spin_ops.get_ghz_state)
 
 
 def get_states(
-    times: Sequence[float] | np.ndarray,
+    times: np.ndarray,
     initial_state: np.ndarray,
     generator: scipy.sparse.spmatrix,
     method: str = DEFAULT_INTEGRATION_METHOD,
@@ -171,20 +171,22 @@ def get_states(
 
 
 def get_QFI(
-    state: np.ndarray, state_diff: np.ndarray, etol_scale: float = DEFAULT_ETOL_SCALE
+    state: np.ndarray,
+    state_deriv: np.ndarray,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
 ) -> float:
     """Compute the QFI from a state (density matrix) and its derivative."""
     # collect data from each block of the density matrix
     block_nums = []  # numerators in contributions to the QFI
     block_vals = []  # eigenvalues of the state
 
-    for block, block_diff in zip(
+    for block, block_deriv in zip(
         spin_ops.get_spin_blocks(state),
-        spin_ops.get_spin_blocks(state_diff),
+        spin_ops.get_spin_blocks(state_deriv),
     ):
         vals, vecs = np.linalg.eigh(block)
         block_vals.append(vals)
-        block_nums.append(abs(vecs.conj().T @ block_diff @ vecs) ** 2)
+        block_nums.append(abs(vecs.conj().T @ block_deriv @ vecs) ** 2)
 
     # identify numerical cutoff for small eigenvalues, below which they get set to 0
     etol = etol_scale * abs(min(val for vals in block_vals for val in vals))
@@ -204,7 +206,7 @@ def get_QFI(
 
 
 def get_QFI_vals(
-    times: Sequence[float] | np.ndarray,
+    times: np.ndarray,
     num_spins: int,
     splitting: float,
     coupling: float,
@@ -216,35 +218,55 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
+    terminate_early: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 
+    # compute the generators of time evolution
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
     hamiltonian_p = get_hamiltonian_generator(
         num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim
     )
     hamiltonian_m = get_hamiltonian_generator(
         num_spins, splitting, coupling - diff_step / 2, boson_dim=boson_dim
     )
-    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    generator_p = hamiltonian_p + dissipator
+    generator_m = hamiltonian_m + dissipator
 
-    def _get_states(hamiltonian: scipy.sparse.spmatrix) -> np.ndarray:
-        generator = hamiltonian + dissipator
-        return get_states(times, initial_state, generator, method, rtol, atol)
+    # reshape the initial state
+    shape = (spin_op_dim, boson_dim, boson_dim)
+    initial_state = initial_state.reshape(shape)
+    vacuum_index = (-((num_spins + 1) ** 2), 0, 0)
 
-    shape = (len(times), spin_op_dim, boson_dim, boson_dim)
-    states_p = _get_states(hamiltonian_p).reshape(shape)
-    states_m = _get_states(hamiltonian_m).reshape(shape)
+    def get_states_avg_and_deriv(
+        times: np.ndarray, initial_state: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        states_p = get_states(times, initial_state, generator_p, method, rtol, atol)
+        states_m = get_states(times, initial_state, generator_m, method, rtol, atol)
+        states_avg = (states_p + states_m) / 2
+        states_deriv = (states_p - states_m) / diff_step
+        return states_avg.reshape(shape), states_deriv.reshape(shape)
 
-    # compute the QFI
+    if terminate_early:
+        return _get_QFI_vals(
+            times, initial_state, get_states_avg_and_deriv, vacuum_index, etol_scale
+        )
+
+    raise NotImplementedError()
+
+
+def _get_QFI_vals(
+    times: np.ndarray,
+    initial_state: np.ndarray,
+    get_states_avg_and_deriv: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+    vacuum_index: tuple[int, int, int],
+    etol_scale: float = DEFAULT_ETOL_SCALE,
+) -> tuple[np.ndarray, np.ndarray]:
     vals_QFI = np.zeros(len(times))
     vals_QFI_SA = np.zeros(len(times))
-    vacuum_index = (-((num_spins + 1) ** 2), 0, 0)
-    for tt, (state_p, state_m) in enumerate(zip(states_p, states_m)):
-        state_avg = (state_p + state_m) / 2
-        state_diff = (state_p - state_m) / diff_step
-
-        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol_scale)
+    states_avg, states_deriv = get_states_avg_and_deriv(times, initial_state)
+    for tt, (state_avg, state_deriv) in enumerate(zip(states_avg, states_deriv)):
+        vals_QFI[tt] = get_QFI(state_avg, state_deriv, etol_scale)
         vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
-
     return vals_QFI, vals_QFI_SA

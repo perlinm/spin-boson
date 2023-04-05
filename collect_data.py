@@ -31,7 +31,7 @@ get_initial_state: Dict[str, Callable[[int], np.ndarray]] = {
 
 
 def compute_QFI_vals(
-    times: Sequence[float],
+    times: np.ndarray,
     num_spins: int,
     decay_res: float,
     decay_spin: float,
@@ -57,7 +57,7 @@ def compute_QFI_vals(
 
 
 def batch_compute_QFI_vals(
-    times: Sequence[float],
+    times: np.ndarray,
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],

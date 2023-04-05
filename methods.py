@@ -158,7 +158,7 @@ def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> sci
 
 
 def get_states(
-    times: Sequence[float] | np.ndarray,
+    times: np.ndarray,
     initial_state: qutip.Qobj,
     hamiltonian: qutip.Qobj,
     jump_ops: Sequence[qutip.Qobj] = (),
@@ -222,7 +222,7 @@ def get_QFI(
 
 
 def get_QFI_vals(
-    times: Sequence[float] | np.ndarray,
+    times: np.ndarray,
     num_spins: int,
     splitting: float,
     coupling: float,
