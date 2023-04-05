@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Iterator, Optional, TypeVar
 
 import numpy as np
 import scipy
@@ -218,7 +218,7 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
-    terminate_early: bool = False,
+    terminate_early: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
@@ -235,38 +235,71 @@ def get_QFI_vals(
     generator_m = hamiltonian_m + dissipator
 
     # reshape the initial state
-    shape = (spin_op_dim, boson_dim, boson_dim)
-    initial_state = initial_state.reshape(shape)
+    op_shape = (spin_op_dim, boson_dim, boson_dim)
+    initial_state = initial_state.reshape(op_shape)
     vacuum_index = (-((num_spins + 1) ** 2), 0, 0)
 
-    def get_states_avg_and_deriv(
-        times: np.ndarray, initial_state: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        states_p = get_states(times, initial_state, generator_p, method, rtol, atol)
-        states_m = get_states(times, initial_state, generator_m, method, rtol, atol)
-        states_avg = (states_p + states_m) / 2
-        states_deriv = (states_p - states_m) / diff_step
-        return states_avg.reshape(shape), states_deriv.reshape(shape)
+    def _get_states(
+        times: np.ndarray, initial_state: np.ndarray, generator: scipy.sparse.spmatrix
+    ) -> np.ndarray:
+        shape = (len(times),) + op_shape
+        return get_states(times, initial_state, generator, method, rtol, atol).reshape(shape)
 
-    if terminate_early:
-        return _get_QFI_vals(
-            times, initial_state, get_states_avg_and_deriv, vacuum_index, etol_scale
+    if not terminate_early:
+        states_p = _get_states(times, initial_state, generator_p)
+        states_m = _get_states(times, initial_state, generator_m)
+        vals_QFI, vals_QFI_SA = _get_QFI_vals(
+            states_p, states_m, vacuum_index, diff_step, etol_scale
         )
 
-    raise NotImplementedError()
+    else:
+        max_QFI = 0.0
+        vals_QFI = [0.0]
+        vals_QFI_SA = [0.0]
+        initial_state_p = initial_state
+        initial_state_m = initial_state
+
+        for time_section in _get_time_sections(times):
+            states_p = _get_states(time_section, initial_state_p, generator_p)
+            states_m = _get_states(time_section, initial_state_m, generator_m)
+            section_vals_QFI, section_vals_QFI_SA = _get_QFI_vals(
+                states_p[1:], states_m[1:], vacuum_index, diff_step, etol_scale
+            )
+            vals_QFI.extend(section_vals_QFI)
+            vals_QFI_SA.extend(section_vals_QFI_SA)
+
+            max_QFI = max(max_QFI, max(section_vals_QFI))
+            if vals_QFI[-1] < max_QFI / 2:
+                break
+
+            initial_state_p = states_p[-1]
+            initial_state_m = states_m[-1]
+
+    return np.array(vals_QFI), np.array(vals_QFI_SA)
 
 
 def _get_QFI_vals(
-    times: np.ndarray,
-    initial_state: np.ndarray,
-    get_states_avg_and_deriv: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+    states_p: np.ndarray,
+    states_m: np.ndarray,
     vacuum_index: tuple[int, int, int],
-    etol_scale: float = DEFAULT_ETOL_SCALE,
-) -> tuple[np.ndarray, np.ndarray]:
-    vals_QFI = np.zeros(len(times))
-    vals_QFI_SA = np.zeros(len(times))
-    states_avg, states_deriv = get_states_avg_and_deriv(times, initial_state)
-    for tt, (state_avg, state_deriv) in enumerate(zip(states_avg, states_deriv)):
-        vals_QFI[tt] = get_QFI(state_avg, state_deriv, etol_scale)
-        vals_QFI_SA[tt] = vals_QFI[tt] * (1 - state_avg[vacuum_index].real)
+    diff_step: float,
+    etol_scale: float,
+) -> tuple[list[float], list[float]]:
+    states_avg = (states_p + states_m) / 2
+    states_deriv = (states_p - states_m) / diff_step
+    vals_QFI = [
+        get_QFI(state_avg, state_deriv, etol_scale)
+        for state_avg, state_deriv in zip(states_avg, states_deriv)
+    ]
+    vals_QFI_SA = [
+        val_QFI * (1 - state_avg[vacuum_index].real)
+        for val_QFI, state_avg in zip(vals_QFI, states_avg)
+    ]
     return vals_QFI, vals_QFI_SA
+
+
+def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[np.ndarray]:
+    for time in np.arange(times[0], times[-1], section_size):
+        start = int(np.argmax(times >= time))
+        end = int(np.argmax(times >= time + section_size))
+        yield times[start : end + 1]

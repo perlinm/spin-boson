@@ -53,7 +53,8 @@ def compute_QFI_vals(
         decay_spin,
         initial_state,
     )
-    np.savetxt(file_QFI, np.vstack([times, vals_QFI, vals_QFI_SA]))
+    sim_times = times[: len(vals_QFI)]
+    np.savetxt(file_QFI, np.vstack([sim_times, vals_QFI, vals_QFI_SA]))
 
 
 def batch_compute_QFI_vals(
