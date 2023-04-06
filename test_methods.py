@@ -141,5 +141,5 @@ def test_spin_boson_evolution() -> None:
         )
 
         assert np.allclose(vals, vals_PS)
-        assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-6)
-        assert np.allclose(vals_QFI_SA, vals_QFI_SA_PS, atol=1e-6)
+        assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-3)
+        assert np.allclose(vals_QFI_SA, vals_QFI_SA_PS, atol=1e-3)

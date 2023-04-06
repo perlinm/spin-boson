@@ -8,7 +8,7 @@ import spin_ops
 DEFAULT_INTEGRATION_METHOD = "DOP853"
 DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
 DEFAULT_ATOL = 1e-10
-DEFAULT_DIFF_STEP = 1e-4  # step size for finite-difference derivative
+DEFAULT_DIFF_STEP = 1e-3  # step size for finite-difference derivative
 
 # Set heuristic for identifying the numerical cutoff for eigenvalues of a density matrix.
 # Eigenvalues with magnitude < `abs(most_negative_eigenvalue) * DEFAULT_ETOL_SCALE` get set to 0.
