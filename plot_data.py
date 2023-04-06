@@ -93,7 +93,8 @@ def get_exponents(
 
 if __name__ == "__main__":
     args = get_simulation_args(sys.argv)
-    os.makedirs(args.fig_dir, exist_ok=True)
+    for subdir in ["surface", "scaling", "time_series"]:
+        os.makedirs(os.path.join(args.fig_dir, subdir), exist_ok=True)
 
     figsize = (4, 3)
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
             ax.set_ylabel(r"$\gamma/g$")
             plt.tight_layout()
 
-            fig_path = os.path.join(args.fig_dir, f"{tag}_{state_key}.pdf")
+            fig_path = os.path.join(args.fig_dir, "surface", f"{tag}_{state_key}.pdf")
             plt.savefig(fig_path)
             plt.close()
 
@@ -135,7 +136,7 @@ if __name__ == "__main__":
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_k{kappa:.2f}_g{gamma:.2f}.pdf"
-            plt.savefig(os.path.join(args.fig_dir, fig_name))
+            plt.savefig(os.path.join(args.fig_dir, "scaling", fig_name))
             plt.close()
 
         print(f"plotting time-series data ({state_key})")
@@ -152,5 +153,5 @@ if __name__ == "__main__":
             plt.tight_layout()
 
             fig_name = f"qfi_{state_key}_N{num_spins}_k{kappa:.2f}_g{gamma:.2f}.pdf"
-            plt.savefig(os.path.join(args.fig_dir, fig_name))
+            plt.savefig(os.path.join(args.fig_dir, "time_series", fig_name))
             plt.close()
