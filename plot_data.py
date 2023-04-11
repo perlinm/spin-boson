@@ -11,18 +11,13 @@ import scipy
 from collect_data import get_file_path, get_simulation_args
 
 
-def poly_func(x: float, a: float, b: float, c: float) -> float:
-    return a * x**b + c
+def poly_func(xx: float, aa: float, bb: float) -> float:
+    return aa * xx**bb
 
 
 def get_fit_exponent(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
-    popt, _ = scipy.optimize.curve_fit(
-        poly_func,
-        x_vals,
-        y_vals,
-        bounds=([0, 0, 0], [800000000, 3, 800000000]),
-    )
-    return popt[1]
+    fit_params, _ = scipy.optimize.curve_fit(poly_func, x_vals, y_vals)
+    return fit_params[1]  # return the second parameter
 
 
 def get_all_data(
