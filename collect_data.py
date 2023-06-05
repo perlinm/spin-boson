@@ -44,7 +44,7 @@ def compute_QFI_vals(
     if status_update:
         print(os.path.relpath(file_QFI))
         sys.stdout.flush()
-    vals_QFI, vals_QFI_SA = methods.get_QFI_vals(
+    vals_QFI = methods.get_QFI_vals(
         times,
         num_spins,
         splitting,
@@ -54,7 +54,7 @@ def compute_QFI_vals(
         initial_state,
     )
     sim_times = times[: len(vals_QFI)]
-    np.savetxt(file_QFI, np.vstack([sim_times, vals_QFI, vals_QFI_SA]))
+    np.savetxt(file_QFI, np.vstack([sim_times, vals_QFI]))
 
 
 def batch_compute_QFI_vals(
@@ -111,7 +111,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="Compute QFI and SA-QFI.",
+        description="Compute QFI.",
         formatter_class=argparse.MetavarTypeHelpFormatter,
     )
     parser.add_argument(

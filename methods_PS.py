@@ -248,25 +248,21 @@ def get_QFI_vals(
     if not terminate_early:
         states_p = _get_states(times, initial_state, generator_p)
         states_m = _get_states(times, initial_state, generator_m)
-        vals_QFI, vals_QFI_SA = _get_QFI_vals(
-            states_p, states_m, vacuum_index, diff_step, etol_scale
-        )
+        vals_QFI = _get_QFI_vals(states_p, states_m, vacuum_index, diff_step, etol_scale)
 
     else:
         max_QFI = 0.0
         vals_QFI = [0.0]
-        vals_QFI_SA = [0.0]
         initial_state_p = initial_state
         initial_state_m = initial_state
 
         for time_section in _get_time_sections(times):
             states_p = _get_states(time_section, initial_state_p, generator_p)
             states_m = _get_states(time_section, initial_state_m, generator_m)
-            section_vals_QFI, section_vals_QFI_SA = _get_QFI_vals(
+            section_vals_QFI = _get_QFI_vals(
                 states_p[1:], states_m[1:], vacuum_index, diff_step, etol_scale
             )
             vals_QFI.extend(section_vals_QFI)
-            vals_QFI_SA.extend(section_vals_QFI_SA)
 
             max_QFI = max(max_QFI, max(section_vals_QFI))
             if vals_QFI[-1] < max_QFI / 2:
@@ -275,7 +271,7 @@ def get_QFI_vals(
             initial_state_p = states_p[-1]
             initial_state_m = states_m[-1]
 
-    return np.array(vals_QFI), np.array(vals_QFI_SA)
+    return np.array(vals_QFI)
 
 
 def _get_QFI_vals(
@@ -287,15 +283,10 @@ def _get_QFI_vals(
 ) -> tuple[list[float], list[float]]:
     states_avg = (states_p + states_m) / 2
     states_deriv = (states_p - states_m) / diff_step
-    vals_QFI = [
+    return [
         get_QFI(state_avg, state_deriv, etol_scale)
         for state_avg, state_deriv in zip(states_avg, states_deriv)
     ]
-    vals_QFI_SA = [
-        val_QFI * (1 - state_avg[vacuum_index].real)
-        for val_QFI, state_avg in zip(vals_QFI, states_avg)
-    ]
-    return vals_QFI, vals_QFI_SA
 
 
 def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[np.ndarray]:
