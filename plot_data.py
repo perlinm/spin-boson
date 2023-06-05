@@ -128,7 +128,7 @@ if __name__ == "__main__":
         for nn, num_spins in enumerate(args.num_spins):
             fig, ax = plt.subplots(figsize=figsize)
             color_mesh = ax.pcolormesh(args.decay_res, args.decay_spin, vals_max[state_key][nn].T)
-            fig.colorbar(color_mesh, label="QFI")
+            fig.colorbar(color_mesh, label=r"QFI $\times g^2$")
             ax.set_xlabel(r"$\kappa/g$")
             ax.set_ylabel(r"$\gamma/g$")
             plt.tight_layout()
