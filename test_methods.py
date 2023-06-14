@@ -1,3 +1,7 @@
+"""
+Contents: Test file for methods.py and methods_PS.py.
+Author: Michael A. Perlin (2023)
+"""
 from typing import Literal, Optional, Sequence
 
 import numpy as np

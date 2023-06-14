@@ -1,3 +1,7 @@
+"""
+Contents: Test file for spin_ops.py.
+Author: Michael A. Perlin (2023)
+"""
 import itertools
 
 import numpy as np
