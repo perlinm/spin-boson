@@ -1,3 +1,7 @@
+"""
+Contents: Methods for simulating a spin-boson system using a QuTiP backend.
+Author: Michael A. Perlin (2023)
+"""
 import functools
 from typing import Any, Callable, Optional, Sequence, TypeVar
 
@@ -34,28 +38,36 @@ def _with_default_boson_dim(spin_func: Callable[..., ReturnType]) -> Callable[..
 
 
 def act_on(op: qutip.Qobj, target_index: int, num_spins: int) -> qutip.Qobj:
+    """Act with the given operator on the given spin (specified by index)."""
     ops = [qutip.qeye(2)] * num_spins
     ops[target_index] = op
     return qutip.tensor(*ops)
 
 
 def collective_qubit_op(qubit_op: qutip.Qobj, num_spins: int) -> qutip.Qobj:
+    """Convert a single-qubit operator into a collective operator.
+
+    If `O` is a single-qubit operator, this method returns sum_j O_j."""
     return sum(act_on(qubit_op, ss, num_spins) for ss in range(num_spins))
 
 
 def qubit_lower(num_spins: int, target_index: int) -> qutip.Qobj:
+    """Construct the lowering operator for single spin."""
     return act_on(qutip.sigmam(), target_index, num_spins)
 
 
 def collective_lower(num_spins: int) -> qutip.Qobj:
+    """Construct the a collective spin-lowering operator."""
     return collective_qubit_op(qutip.sigmam(), num_spins)
 
 
 def collective_raise(num_spins: int) -> qutip.Qobj:
+    """Construct the a collective spin-raising operator."""
     return collective_lower(num_spins).dag()
 
 
 def collective_Sz(num_spins: int) -> qutip.Qobj:
+    """Construct the a collective spin-z operator."""
     return collective_qubit_op(qutip.sigmaz(), num_spins) / 2
 
 
@@ -64,17 +76,23 @@ def collective_Sz(num_spins: int) -> qutip.Qobj:
 
 
 def get_spin_vacuum_state(num_spins: int) -> qutip.Qobj:
+    """Construct the vacuum state for a collection of spins.
+
+    Somewhat confusingly, the vacuum state is the all-spin-down state, or all-|1> state.
+    """
     states = [qutip.fock(2, 1)] * num_spins
     return qutip.tensor(*states)
 
 
 @_with_default_boson_dim
 def get_vacuum_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
+    """Construct the vacuum state of a spin-boson system."""
     return qutip.tensor(get_spin_vacuum_state(num_spins), qutip.fock(boson_dim, 0))
 
 
 @_with_default_boson_dim
 def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qutip.Qobj:
+    """Construct a Dicke state with a boson vacuum."""
     spin_state = get_spin_vacuum_state(num_spins)
     collective_Sp = collective_raise(num_spins)
     for _ in range(num_excitations):
@@ -85,6 +103,7 @@ def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qut
 
 @_with_default_boson_dim
 def get_ghz_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
+    """Construct a GHZ state with a boson vacuum."""
     return qutip.tensor(qutip.ghz_state(num_spins), qutip.fock(boson_dim, 0))
 
 
@@ -97,6 +116,14 @@ def get_ghz_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
 def get_hamiltonian(
     num_spins: int, splitting: float, coupling: float, boson_dim: int
 ) -> qutip.Qobj:
+    """
+    Construct the Hamiltonian `splitting * (Sz + N) + coupling * (Sp a + Sm a^dag)`, where:
+    - `Sz` is a spin-z operator for the spins
+    - `Sm` and `Sp` are collective spin-lowering and spin-raising operators
+    - `N` is the number operator for the bosonic mode
+    - `a` and `a^dag` are lowering and raising operators for the bosonic mode
+    - `splitting` and `coupling` are scalars
+    """
     spin_term = qutip.tensor(collective_Sz(num_spins), qutip.qeye(boson_dim))
     resonator_term = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.num(boson_dim))
     coupling_op = qutip.tensor(collective_raise(num_spins), qutip.destroy(boson_dim))
@@ -109,6 +136,7 @@ def get_hamiltonian(
 def get_jump_ops(
     num_spins: int, decay_res: float, decay_spin: float, boson_dim: int
 ) -> list[qutip.Qobj]:
+    """Construct a list of jump operators corresponding to single-spin decay and boson decay."""
     qubit_ops = [
         np.sqrt(decay_spin) * qutip.tensor(qubit_lower(num_spins, ss), qutip.qeye(boson_dim))
         for ss in range(num_spins)
@@ -119,6 +147,7 @@ def get_jump_ops(
 
 @functools.cache
 def get_identity_matrix(dim: int) -> scipy.sparse.spmatrix:
+    """Construct an identity matrix."""
     return scipy.sparse.identity(dim)
 
 
@@ -146,11 +175,13 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
 def get_hamiltonian_superop(
     num_spins: int, splitting: float, coupling: float
 ) -> scipy.sparse.spmatrix:
+    """Get the (Lie-algebraic) adjoint representation of a Hamiltonian."""
     return to_adjoint_rep(get_hamiltonian(num_spins, splitting, coupling).data)
 
 
 @functools.cache
 def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> scipy.sparse.spmatrix:
+    """Get the superoperators that generate spin and boson decay."""
     return sum(
         to_dissipation_generator(jump_op.data)
         for jump_op in get_jump_ops(num_spins, decay_res, decay_spin)
@@ -166,6 +197,7 @@ def get_states(
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
 ) -> np.ndarray:
+    """For a given initial state, Hamiltonian, and jump operators, return states at later times."""
     dim = initial_state.shape[0]
     final_shape = (len(times), dim, dim)
 
@@ -205,6 +237,7 @@ def get_states(
 def get_QFI(
     state: np.ndarray, state_diff: np.ndarray, etol_scale: float = DEFAULT_ETOL_SCALE
 ) -> float:
+    """Compute the QFI from a state and its derivative w.r.t. the parameter to be estimated."""
     vals, vecs = np.linalg.eigh(state)
 
     # identify numerical cutoff for small eigenvalues, below which they get set to 0
@@ -235,6 +268,7 @@ def get_QFI_vals(
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     boson_dim = initial_state.shape[0] // 2**num_spins
     hamiltonian_p = get_hamiltonian(
         num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim

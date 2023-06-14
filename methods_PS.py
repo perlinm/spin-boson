@@ -1,3 +1,7 @@
+"""
+Contents: Methods for simulating a spin-boson system with permutational symmetry.
+Author: Michael A. Perlin (2023)
+"""
 from typing import Any, Callable, Iterator, Optional, TypeVar
 
 import numpy as np
@@ -34,18 +38,21 @@ def _with_default_boson_dim(spin_func: Callable[..., ReturnType]) -> Callable[..
 
 
 def get_boson_num_op(dim: int) -> scipy.sparse.spmatrix:
+    """Construct the number operator for a bosonic mode."""
     shape = (dim, dim)
     vals = range(dim)
     return scipy.sparse.dia_matrix(([vals], [0]), shape)
 
 
 def get_boson_lower_op(dim: int) -> scipy.sparse.spmatrix:
+    """Construct the lowering operator for a bosonic mode."""
     shape = (dim, dim)
     vals = [np.sqrt(val) for val in range(dim)]
     return scipy.sparse.dia_matrix(([vals], [1]), shape)
 
 
 def get_boson_state(dim: int, index: int = 0) -> np.ndarray:
+    """Construct the n-occupation state |n> for a bosonic mode."""
     state = np.zeros(dim)
     state[index] = 1
     return state
@@ -59,6 +66,15 @@ def get_hamiltonian_generator(
     *,
     boson_dim: int,
 ) -> scipy.sparse.spmatrix:
+    """Construct the generator of coherent time evolution for a vectorized density matrix.
+
+    The corresponding Hamiltonian is `splitting * (Sz + N) + coupling * (Sp a + Sm a^dag)`, where:
+    - `Sz` is a spin-z operator for the spins
+    - `Sm` and `Sp` are collective spin-lowering and spin-raising operators
+    - `N` is the number operator for the bosonic mode
+    - `a` and `a^dag` are lowering and raising operators for the bosonic mode
+    - `splitting` and `coupling` are scalars
+    """
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     spin_iden = scipy.sparse.identity(spin_op_dim)
     boson_iden = scipy.sparse.identity(boson_dim)
@@ -99,6 +115,10 @@ def get_dissipator(
     *,
     boson_dim: int,
 ) -> scipy.sparse.spmatrix:
+    """Construct a dissipator that generates spin and boson decay.
+
+    The dissipator is represented by a super-operator that acts on a vectorized density matrix.
+    """
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     dissipator_res = scipy.sparse.kron(
         scipy.sparse.identity(spin_op_dim),
@@ -158,6 +178,7 @@ def get_states(
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
 ) -> np.ndarray:
+    """For a given initial state and generator of time evolution, return states at later times."""
     solution = scipy.integrate.solve_ivp(
         lambda time, state: generator @ state,
         (times[0], times[-1]),
@@ -175,7 +196,7 @@ def get_QFI(
     state_deriv: np.ndarray,
     etol_scale: float = DEFAULT_ETOL_SCALE,
 ) -> float:
-    """Compute the QFI from a state (density matrix) and its derivative."""
+    """Compute the QFI from a state and its derivative w.r.t. the parameter to be estimated."""
     # collect data from each block of the density matrix
     block_nums = []  # numerators in contributions to the QFI
     block_vals = []  # eigenvalues of the state
@@ -220,6 +241,7 @@ def get_QFI_vals(
     diff_step: float = DEFAULT_DIFF_STEP,
     terminate_early: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 

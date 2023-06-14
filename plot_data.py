@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Contents: Script to plot the results of simulations of a spin-boson system.
+Author: Michael A. Perlin (2023)
+"""
 import itertools
 import os
 import sys

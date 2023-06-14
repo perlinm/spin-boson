@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Contents: Script to generate slurm jobs.
+Author: Michael A. Perlin (2023)
+"""
 import os
 import sys
 
@@ -20,7 +24,6 @@ job_name = f"qfi_N{max(num_spin_vals)}_g{decay_spin:.2f}"
 base_name = os.path.join(job_dir, job_name)
 
 log_text = f"""#!/bin/sh
-
 #SBATCH --partition=knlall
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
