@@ -122,7 +122,7 @@ def test_spin_boson_evolution() -> None:
             for collective_op in collective_ops
             for state in states
         ]
-        vals_QFI, vals_QFI_SA = methods.get_QFI_vals(times, num_spins, *args, initial_state)
+        vals_QFI = methods.get_QFI_vals(times, num_spins, *args, initial_state)
 
         # simulate with PS methods
         collective_ops_PS = get_collective_ops_PS(num_spins, boson_dim=boson_dim)
@@ -140,10 +140,9 @@ def test_spin_boson_evolution() -> None:
             for collective_op in collective_ops_PS
             for state in states
         ]
-        vals_QFI_PS, vals_QFI_SA_PS = methods_PS.get_QFI_vals(
+        vals_QFI_PS = methods_PS.get_QFI_vals(
             times, num_spins, *args, initial_state
         )
 
         assert np.allclose(vals, vals_PS)
         assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-3)
-        assert np.allclose(vals_QFI_SA, vals_QFI_SA_PS, atol=1e-3)
