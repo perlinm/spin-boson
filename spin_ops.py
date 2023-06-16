@@ -8,6 +8,35 @@ from typing import Iterator, Literal, Optional
 import numpy as np
 import scipy
 
+
+def op_tensor_to_matrix(tensor: np.ndarray) -> np.ndarray:
+    """Convert a tensor op on a factorized Hilbert space (HS) into a matrix on the entire HS."""
+    matrix_dim = int(np.prod(tensor.shape[::2]))
+    matrix_shape = (matrix_dim, matrix_dim)
+    return np.moveaxis(
+        tensor,
+        range(0, tensor.ndim, 2),
+        range(tensor.ndim // 2),
+    ).reshape(matrix_shape)
+
+
+def op_matrix_to_tensor(
+    matrix: np.ndarray,
+    dims: Optional[tuple[int, ...]] = None,
+    aux_dims: Optional[tuple[int, ...]] = None,
+) -> np.ndarray:
+    """Convert a matrix op into a tensor op on a factorized Hilbert space."""
+    assert dims is not None or aux_dims is not None
+    if aux_dims is not None:
+        first_dim = matrix.shape[0] // int(np.prod(aux_dims))
+        dims = (first_dim,) + aux_dims
+    return np.moveaxis(
+        matrix.reshape(dims + dims),
+        range(dims),
+        range(0, 2 * dims, 2),
+    )
+
+
 ################################################################################
 # spin operator format metadata
 
@@ -325,13 +354,7 @@ def get_spin_blocks(state: np.ndarray) -> Iterator[np.ndarray]:
         block_data = state[block_slice]
 
         tensor_shape = (shell_dim, shell_dim) + state.shape[1:]
-        matrix_dim = int(np.round(np.sqrt(block_data.size)))
-        matrix_shape = (matrix_dim, matrix_dim)
-        yield np.moveaxis(
-            block_data.reshape(tensor_shape),
-            range(0, len(tensor_shape), 2),
-            range(len(tensor_shape) // 2),
-        ).reshape(matrix_shape)
+        yield op_tensor_to_matrix(block_data.reshape(tensor_shape))
 
         shell_start += block_size
         shell_dim += 2
@@ -345,4 +368,35 @@ def get_spin_trace(op: np.ndarray) -> np.ndarray:
         op[get_spin_basis_index(shell_dim, num, num)]
         for shell_dim in shell_dims
         for num in range(shell_dim)
+    )
+
+
+################################################################################
+# methods to manipulate operators on the spin Hilbert space
+
+
+def adjoint(op: np.ndarray) -> np.ndarray:
+    """Compute the conjugate-transpose of a tensor spin operator."""
+    op_shape = op.shape
+    aux_dims = op_shape[1::2]
+    block_shape = (-1,) + op_shape[1:]
+    return np.vstack(
+        [
+            op_matrix_to_tensor(block.conj().T, aux_dims=aux_dims).reshape(block_shape)
+            for block in get_spin_blocks(op)
+        ]
+    )
+
+
+def matmul(op_a: np.ndarray, op_b: np.ndarray) -> np.ndarray:
+    """Matrix-multiply two spin tensor operators."""
+    assert op_a.shape == op_b.shape
+    op_shape = op_a.shape
+    aux_dims = op_shape[1::2]
+    block_shape = (-1,) + op_shape[1:]
+    return np.vstack(
+        [
+            op_matrix_to_tensor(block_a @ block_b, aux_dims=aux_dims).reshape(block_shape)
+            for block_a, block_b in zip(get_spin_blocks(op_a), get_spin_blocks(op_b))
+        ]
     )

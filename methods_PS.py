@@ -2,7 +2,7 @@
 Contents: Methods for simulating a spin-boson system with permutational symmetry.
 Author: Michael A. Perlin (2023)
 """
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterator, Optional, Sequence, TypeVar
 
 import numpy as np
 import scipy
@@ -316,3 +316,87 @@ def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[n
         start = int(np.argmax(times >= time))
         end = int(np.argmax(times >= time + section_size))
         yield times[start : end + 1]
+
+
+################################################################################
+# Fisher info bound calculation
+
+
+def get_QFI_bound_vals(
+    times: np.ndarray,
+    num_spins: int,
+    splitting: float,
+    coupling: float,
+    decay_res: float,
+    decay_spin: float,
+    initial_state: np.ndarray,
+    method: str = DEFAULT_INTEGRATION_METHOD,
+    rtol: float = DEFAULT_RTOL,
+    atol: float = DEFAULT_ATOL,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
+    diff_step: float = DEFAULT_DIFF_STEP,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get the QFI over time for a spin-boson system defined by the provided arguments."""
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
+
+    # compute time-evolved states
+    hamiltonian = get_hamiltonian_generator(num_spins, splitting, coupling, boson_dim=boson_dim)
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    generator = hamiltonian + dissipator
+    op_shape = (spin_op_dim, boson_dim, boson_dim)
+    shape = (len(times),) + op_shape
+    states = get_states(times, initial_state, generator, method, rtol, atol).reshape(shape)
+
+    # compute the generators of time evolution
+    dissipator_p = get_dissipator(
+        num_spins, decay_res, decay_spin + diff_step / 2, boson_dim=boson_dim
+    )
+    dissipator_m = get_dissipator(
+        num_spins, decay_res, decay_spin - diff_step / 2, boson_dim=boson_dim
+    )
+    generator_p = hamiltonian + dissipator_p
+    generator_m = hamiltonian + dissipator_m
+
+    # compute kraus operators
+    kraus_vecs_p = [channel_to_kraus_vecs(scipy.linalg.expm(time * generator_p)) for time in times]
+    kraus_vecs_m = [channel_to_kraus_vecs(scipy.linalg.expm(time * generator_m)) for time in times]
+
+    # compute operators in the bound
+    ops_A = []
+    ops_B = []
+    for _ in range(len(times)):
+        op_A = op_B = 0
+
+        for kraus_vec_p, kraus_vec_m in zip(kraus_vecs_p, kraus_vecs_m):
+            kraus_op_p = kraus_vec_p.reshape(op_shape)
+            kraus_op_m = kraus_vec_m.reshape(op_shape)
+            kraus_op = (kraus_op_p + kraus_op_m) / 2
+            kraus_op_deriv = (kraus_op_p - kraus_op_m) / diff_step
+            kraus_op_deriv_dag = spin_ops.adjoint(kraus_op_deriv)
+
+            op_A += spin_ops.matmul(kraus_op_deriv_dag, kraus_op_deriv)
+            op_B += 1j * spin_ops.matmul(kraus_op_deriv_dag, kraus_op)
+
+        ops_A.append(op_A)
+        ops_B.append(op_B)
+
+    # compute exepectation values for the bound
+    vals_bound = np.zeros(len(times), dtype=np.complex)
+    for tt, (state, op_A, op_B) in enumerate(states, ops_A, ops_B):
+        bound_tt = 0
+        for state_block, op_A_block, op_B_block in zip(
+            spin_ops.get_spin_blocks(state),
+            spin_ops.get_spin_blocks(op_A),
+            spin_ops.get_spin_blocks(op_B),
+        ):
+            bound_tt += state_block.conj().ravel() @ op_A_block.ravel()
+            bound_tt -= (state_block.conj().ravel() @ op_B_block.ravel()) ** 2
+        vals_bound[tt] = bound_tt
+    return 4 * vals_bound
+
+
+def channel_to_kraus_vecs(channel: np.ndarray) -> Sequence[np.ndarray]:
+    """Get the Kraus operators of a quantum channel."""
+    vals, vecs = np.linalg.eigh(channel)
+    return [np.sqrt(abs(val)) * vec for val, vec in zip(vals, vecs.T) if not np.isclose(val, 0)]

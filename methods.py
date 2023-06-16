@@ -292,3 +292,64 @@ def get_QFI_vals(
         vals_QFI[tt] = get_QFI(state_avg, state_diff, etol_scale)
 
     return vals_QFI
+
+
+################################################################################
+# Fisher info bound calculation
+
+
+def get_QFI_bound_vals(
+    times: np.ndarray,
+    num_spins: int,
+    splitting: float,
+    coupling: float,
+    decay_res: float,
+    decay_spin: float,
+    initial_state: qutip.Qobj,
+    method: str = DEFAULT_INTEGRATION_METHOD,
+    rtol: float = DEFAULT_RTOL,
+    atol: float = DEFAULT_ATOL,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
+    diff_step: float = DEFAULT_DIFF_STEP,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get the QFI over time for a spin-boson system defined by the provided arguments."""
+    boson_dim = initial_state.shape[0] // 2**num_spins
+
+    # compute time-evolved states
+    hamiltonian = get_hamiltonian(num_spins, splitting, coupling, boson_dim=boson_dim)
+    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    states = get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
+
+    # compute the generators of time evolution
+    jump_ops_p = get_jump_ops(num_spins, decay_res, decay_spin + diff_step / 2, boson_dim=boson_dim)
+    jump_ops_m = get_jump_ops(num_spins, decay_res, decay_spin - diff_step / 2, boson_dim=boson_dim)
+    generator_p = qutip.liouvillian(hamiltonian, jump_ops_p)
+    generator_m = qutip.liouvillian(hamiltonian, jump_ops_m)
+
+    # compute kraus operators
+    kraus_ops_p = [qutip.to_kraus((time * generator_p).expm()) for time in times]
+    kraus_ops_m = [qutip.to_kraus((time * generator_m).expm()) for time in times]
+
+    # compute operators in the bound
+    ops_A = []
+    ops_B = []
+    for _ in range(len(times)):
+        op_A = op_B = 0
+
+        for kraus_op_p, kraus_op_m in zip(kraus_ops_p, kraus_ops_m):
+            kraus_op = (kraus_op_p + kraus_op_m) / 2
+            kraus_op_deriv = (kraus_op_p - kraus_op_m) / diff_step
+            kraus_op_deriv_dag = kraus_op_deriv.dag()
+
+            op_A += kraus_op_deriv_dag * kraus_op_deriv
+            op_B += 1j * kraus_op_deriv_dag * kraus_op
+
+        ops_A.append(op_A)
+        ops_B.append(op_B)
+
+    # compute exepectation values for the bound
+    vals_bound = [
+        qutip.expect(op_A, state) - qutip.expect(op_B, state) ** 2
+        for state, op_A, op_B in enumerate(states, ops_A, ops_B)
+    ]
+    return 4 * np.array(vals_bound, dtype=complex)
