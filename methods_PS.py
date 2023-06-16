@@ -382,18 +382,11 @@ def get_QFI_bound_vals(
         ops_B.append(op_B)
 
     # compute exepectation values for the bound
-    vals_bound = np.zeros(len(times), dtype=np.complex)
-    for tt, (state, op_A, op_B) in enumerate(states, ops_A, ops_B):
-        bound_tt = 0
-        for state_block, op_A_block, op_B_block in zip(
-            spin_ops.get_spin_blocks(state),
-            spin_ops.get_spin_blocks(op_A),
-            spin_ops.get_spin_blocks(op_B),
-        ):
-            bound_tt += state_block.conj().ravel() @ op_A_block.ravel()
-            bound_tt -= (state_block.conj().ravel() @ op_B_block.ravel()) ** 2
-        vals_bound[tt] = bound_tt
-    return 4 * vals_bound
+    vals_bound = [
+        state.conj().ravel() @ op_A.ravel() - (state.conj().ravel() @ op_B.ravel()) ** 2
+        for state, op_A, op_B in enumerate(states, ops_A, ops_B)
+    ]
+    return 4 * np.array(vals_bound, dtype=complex)
 
 
 def channel_to_kraus_vecs(channel: np.ndarray) -> Sequence[np.ndarray]:
