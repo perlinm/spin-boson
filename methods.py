@@ -330,13 +330,12 @@ def get_QFI_bound_vals(
     kraus_ops_p = [qutip.to_kraus((time * generator_p).expm()) for time in times]
     kraus_ops_m = [qutip.to_kraus((time * generator_m).expm()) for time in times]
 
-    # compute operators in the bound
-    ops_A = []
-    ops_B = []
-    for _ in range(len(times)):
-        op_A = op_B = 0
+    # compute bound at each time
+    vals_bound = np.zeros(len(times), dtype=complex)
+    for tt, state in enumerate(states):
 
-        for kraus_op_p, kraus_op_m in zip(kraus_ops_p, kraus_ops_m):
+        op_A = op_B = 0
+        for kraus_op_p, kraus_op_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
             kraus_op = (kraus_op_p + kraus_op_m) / 2
             kraus_op_deriv = (kraus_op_p - kraus_op_m) / diff_step
             kraus_op_deriv_dag = kraus_op_deriv.dag()
@@ -344,12 +343,9 @@ def get_QFI_bound_vals(
             op_A += kraus_op_deriv_dag * kraus_op_deriv
             op_B += 1j * kraus_op_deriv_dag * kraus_op
 
-        ops_A.append(op_A)
-        ops_B.append(op_B)
+        qutip_state = qutip.Qobj(state, dims=op_A.dims)
+        term_A = qutip.expect(op_A, qutip_state)
+        term_B = qutip.expect(op_B, qutip_state)
+        vals_bound[tt] = term_A - term_B**2
 
-    # compute exepectation values for the bound
-    vals_bound = [
-        qutip.expect(op_A, state) - qutip.expect(op_B, state) ** 2
-        for state, op_A, op_B in enumerate(states, ops_A, ops_B)
-    ]
-    return 4 * np.array(vals_bound, dtype=complex)
+    return 4 * vals_bound

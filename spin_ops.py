@@ -32,8 +32,8 @@ def op_matrix_to_tensor(
         dims = (first_dim,) + aux_dims
     return np.moveaxis(
         matrix.reshape(dims + dims),
-        range(dims),
-        range(0, 2 * dims, 2),
+        range(len(dims)),
+        range(0, 2 * len(dims), 2),
     )
 
 

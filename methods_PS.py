@@ -359,17 +359,15 @@ def get_QFI_bound_vals(
     generator_m = hamiltonian + dissipator_m
 
     # compute kraus operators
-    expm = scipy.sparse.linalg.expm
-    kraus_vecs_p = [channel_to_kraus_vecs(expm(time * generator_p)) for time in times]
-    kraus_vecs_m = [channel_to_kraus_vecs(expm(time * generator_m)) for time in times]
+    kraus_ops_p = [_log_channel_to_kraus_ops(time * generator_p, op_shape) for time in times]
+    kraus_ops_m = [_log_channel_to_kraus_ops(time * generator_m, op_shape) for time in times]
 
-    # compute operators in the bound
-    ops_A = []
-    ops_B = []
-    for _ in range(len(times)):
+    # compute bound at each time
+    vals_bound = np.zeros(len(times), dtype=complex)
+    for tt, state in enumerate(states):
+
         op_A = op_B = 0
-
-        for kraus_vec_p, kraus_vec_m in zip(kraus_vecs_p, kraus_vecs_m):
+        for kraus_vec_p, kraus_vec_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
             kraus_op_p = kraus_vec_p.reshape(op_shape)
             kraus_op_m = kraus_vec_m.reshape(op_shape)
             kraus_op = (kraus_op_p + kraus_op_m) / 2
@@ -379,18 +377,21 @@ def get_QFI_bound_vals(
             op_A += spin_ops.matmul(kraus_op_deriv_dag, kraus_op_deriv)
             op_B += 1j * spin_ops.matmul(kraus_op_deriv_dag, kraus_op)
 
-        ops_A.append(op_A)
-        ops_B.append(op_B)
+        term_A = state.conj().ravel() @ op_A.ravel()
+        term_B = state.conj().ravel() @ op_B.ravel()
+        vals_bound[tt] = term_A - term_B**2
 
-    # compute exepectation values for the bound
-    vals_bound = [
-        state.conj().ravel() @ op_A.ravel() - (state.conj().ravel() @ op_B.ravel()) ** 2
-        for state, op_A, op_B in enumerate(states, ops_A, ops_B)
+    return 4 * vals_bound
+
+
+def _log_channel_to_kraus_ops(
+    log_channel: scipy.sparse.spmatrix, op_shape: tuple[int, ...]
+) -> np.ndarray:
+    """Get the Kraus operators of a quantum channel, specified by its natural logarithm."""
+    channel = np.array(scipy.sparse.linalg.expm(log_channel.tocsc()).todense())
+    vals, vecs = np.linalg.eigh(channel)
+    return [
+        np.sqrt(abs(val)) * vec.reshape(op_shape)
+        for val, vec in zip(vals, vecs.T)
+        if not np.isclose(val, 0)
     ]
-    return 4 * np.array(vals_bound, dtype=complex)
-
-
-def channel_to_kraus_vecs(channel: scipy.sparse.spmatrix | np.ndarray) -> Sequence[np.ndarray]:
-    """Get the Kraus operators of a quantum channel."""
-    vals, vecs = np.linalg.eigh(channel if isinstance(channel, np.ndarray) else channel.todense())
-    return [np.sqrt(abs(val)) * vec for val, vec in zip(vals, vecs.T) if not np.isclose(val, 0)]
