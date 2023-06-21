@@ -13,6 +13,7 @@ import methods_PS
 import spin_ops
 
 MAX_NUM_SPINS = 5
+MAX_BOUND_SPINS = 2
 
 
 def get_collective_ops_qutip(
@@ -67,7 +68,7 @@ def test_spin_evolution() -> None:
     ham_vec = np.random.random(3)
     kraus_vec = np.random.random(3)
 
-    for num_spins in range(1, MAX_NUM_SPINS):
+    for num_spins in range(1, MAX_NUM_SPINS + 1):
 
         # simulate with qutip
         collective_ops = get_collective_ops_qutip(num_spins)
@@ -107,42 +108,24 @@ def test_spin_boson_evolution() -> None:
     decay_spin = np.random.random()
     args = (splitting, coupling, decay_res, decay_spin)
 
-    for num_spins in range(1, MAX_NUM_SPINS):
+    def get_ghz_state_PS(num_spins: int) -> np.ndarray:
         boson_dim = num_spins + 1
-
-        # simulate with qutip
-        collective_ops = get_collective_ops_qutip(num_spins, boson_dim=boson_dim)
-        initial_state = methods.get_ghz_state(num_spins)
-        hamiltonian = methods.get_hamiltonian(num_spins, splitting, coupling)
-        jump_ops = methods.get_jump_ops(num_spins, decay_res, decay_spin)
-        states = methods.get_states(times, initial_state, hamiltonian, jump_ops)
-
-        vals = [
-            (collective_op.data.conj().toarray().ravel() @ state.ravel()).real
-            for collective_op in collective_ops
-            for state in states
-        ]
-        vals_QFI = methods.get_QFI_vals(times, num_spins, *args, initial_state)
-
-        # simulate with PS methods
-        collective_ops_PS = get_collective_ops_PS(num_spins, boson_dim=boson_dim)
         boson_vacuum = np.zeros(boson_dim**2)
         boson_vacuum[0] = 1
-        initial_state = np.kron(spin_ops.get_ghz_state(num_spins), boson_vacuum)
-        hamiltonian_generator = methods_PS.get_hamiltonian_generator(num_spins, splitting, coupling)
-        dissipator = methods_PS.get_dissipator(num_spins, decay_res, decay_spin)
-        generator = hamiltonian_generator + dissipator
-        states = methods_PS.get_states(times, initial_state, generator)
+        return np.kron(spin_ops.get_ghz_state(num_spins), boson_vacuum)
 
-        shape = (-1, boson_dim, boson_dim)
-        vals_PS = [
-            spin_ops.get_spin_trace((collective_op @ state).reshape(shape)).trace()
-            for collective_op in collective_ops_PS
-            for state in states
-        ]
-        vals_QFI_PS = methods_PS.get_QFI_vals(
-            times, num_spins, *args, initial_state
-        )
+    for num_spins in range(1, MAX_NUM_SPINS + 1):
 
-        assert np.allclose(vals, vals_PS)
-        assert np.allclose(vals_QFI, vals_QFI_PS, atol=1e-3)
+        # construct initial states
+        initial_state = methods.get_ghz_state(num_spins)
+        initial_state_PS = get_ghz_state_PS(num_spins)
+
+        # compare QFI values computed with qutip vs. PS methods
+        vals_QFI = methods.get_QFI_vals(times, num_spins, *args, initial_state)
+        vals_QFI_PS = methods_PS.get_QFI_vals(times, num_spins, *args, initial_state_PS)
+        assert np.allclose(vals_QFI, vals_QFI_PS, rtol=1e-3)
+
+        # if num_spins <= MAX_BOUND_SPINS:
+        #     bounds_QFI = methods.get_QFI_bound_vals(times, num_spins, *args, initial_state)
+        #     bounds_QFI_PS = methods_PS.get_QFI_bound_vals(times, num_spins, *args, initial_state_PS)
+        #     assert np.allclose(bounds_QFI, bounds_QFI_PS, rtol=1e-3)

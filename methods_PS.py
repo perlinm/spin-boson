@@ -359,8 +359,9 @@ def get_QFI_bound_vals(
     generator_m = hamiltonian + dissipator_m
 
     # compute kraus operators
-    kraus_vecs_p = [channel_to_kraus_vecs(scipy.linalg.expm(time * generator_p)) for time in times]
-    kraus_vecs_m = [channel_to_kraus_vecs(scipy.linalg.expm(time * generator_m)) for time in times]
+    expm = scipy.sparse.linalg.expm
+    kraus_vecs_p = [channel_to_kraus_vecs(expm(time * generator_p)) for time in times]
+    kraus_vecs_m = [channel_to_kraus_vecs(expm(time * generator_m)) for time in times]
 
     # compute operators in the bound
     ops_A = []
@@ -389,7 +390,7 @@ def get_QFI_bound_vals(
     return 4 * np.array(vals_bound, dtype=complex)
 
 
-def channel_to_kraus_vecs(channel: np.ndarray) -> Sequence[np.ndarray]:
+def channel_to_kraus_vecs(channel: scipy.sparse.spmatrix | np.ndarray) -> Sequence[np.ndarray]:
     """Get the Kraus operators of a quantum channel."""
-    vals, vecs = np.linalg.eigh(channel)
+    vals, vecs = np.linalg.eigh(channel if isinstance(channel, np.ndarray) else channel.todense())
     return [np.sqrt(abs(val)) * vec for val, vec in zip(vals, vecs.T) if not np.isclose(val, 0)]
