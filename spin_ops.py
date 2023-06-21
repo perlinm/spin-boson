@@ -22,14 +22,13 @@ def op_tensor_to_matrix(tensor: np.ndarray) -> np.ndarray:
 
 def op_matrix_to_tensor(
     matrix: np.ndarray,
-    dims: Optional[tuple[int, ...]] = None,
-    aux_dims: Optional[tuple[int, ...]] = None,
+    dims: tuple[int, ...],
+    aux_dims: bool = False,
 ) -> np.ndarray:
     """Convert a matrix op into a tensor op on a factorized Hilbert space."""
-    assert dims is not None or aux_dims is not None
-    if aux_dims is not None:
-        first_dim = matrix.shape[0] // int(np.prod(aux_dims))
-        dims = (first_dim,) + aux_dims
+    if aux_dims:
+        first_dim = matrix.shape[0] // int(np.prod(dims))
+        dims = (first_dim,) + dims
     return np.moveaxis(
         matrix.reshape(dims + dims),
         range(len(dims)),
@@ -378,11 +377,11 @@ def get_spin_trace(op: np.ndarray) -> np.ndarray:
 def adjoint(op: np.ndarray) -> np.ndarray:
     """Compute the conjugate-transpose of a tensor spin operator."""
     op_shape = op.shape
-    aux_dims = op_shape[1::2]
+    boson_dims = op_shape[1::2]
     block_shape = (-1,) + op_shape[1:]
     return np.vstack(
         [
-            op_matrix_to_tensor(block.conj().T, aux_dims=aux_dims).reshape(block_shape)
+            op_matrix_to_tensor(block.conj().T, boson_dims, aux_dims=True).reshape(block_shape)
             for block in get_spin_blocks(op)
         ]
     )
@@ -392,11 +391,11 @@ def matmul(op_a: np.ndarray, op_b: np.ndarray) -> np.ndarray:
     """Matrix-multiply two spin tensor operators."""
     assert op_a.shape == op_b.shape
     op_shape = op_a.shape
-    aux_dims = op_shape[1::2]
+    boson_dims = op_shape[1::2]
     block_shape = (-1,) + op_shape[1:]
     return np.vstack(
         [
-            op_matrix_to_tensor(block_a @ block_b, aux_dims=aux_dims).reshape(block_shape)
+            op_matrix_to_tensor(block_a @ block_b, boson_dims, aux_dims=True).reshape(block_shape)
             for block_a, block_b in zip(get_spin_blocks(op_a), get_spin_blocks(op_b))
         ]
     )

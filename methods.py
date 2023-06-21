@@ -267,7 +267,7 @@ def get_QFI_vals(
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     boson_dim = initial_state.shape[0] // 2**num_spins
     hamiltonian_p = get_hamiltonian(
@@ -311,9 +311,10 @@ def get_QFI_bound_vals(
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     boson_dim = initial_state.shape[0] // 2**num_spins
+    state_dims = [initial_state.dims[0]] * 2
 
     # compute time-evolved states
     hamiltonian = get_hamiltonian(num_spins, splitting, coupling, boson_dim=boson_dim)
@@ -331,7 +332,7 @@ def get_QFI_bound_vals(
     kraus_ops_m = [qutip.to_kraus((time * generator_m).expm()) for time in times]
 
     # compute bound at each time
-    vals_bound = np.zeros(len(times), dtype=complex)
+    vals_bound = np.zeros(len(times))
     for tt, state in enumerate(states):
 
         op_A = op_B = 0
@@ -343,9 +344,9 @@ def get_QFI_bound_vals(
             op_A += kraus_op_deriv_dag * kraus_op_deriv
             op_B += 1j * kraus_op_deriv_dag * kraus_op
 
-        qutip_state = qutip.Qobj(state, dims=op_A.dims)
+        qutip_state = qutip.Qobj(state, dims=state_dims)
         term_A = qutip.expect(op_A, qutip_state)
         term_B = qutip.expect(op_B, qutip_state)
-        vals_bound[tt] = term_A - term_B**2
+        vals_bound[tt] = (term_A - term_B**2).real
 
     return 4 * vals_bound

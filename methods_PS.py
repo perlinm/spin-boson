@@ -240,7 +240,7 @@ def get_QFI_vals(
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
     terminate_early: bool = True,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
@@ -302,7 +302,7 @@ def _get_QFI_vals(
     vacuum_index: tuple[int, int, int],
     diff_step: float,
     etol_scale: float,
-) -> tuple[list[float], list[float]]:
+) -> list[float]:
     states_avg = (states_p + states_m) / 2
     states_deriv = (states_p - states_m) / diff_step
     return [
@@ -335,7 +335,7 @@ def get_QFI_bound_vals(
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
@@ -363,10 +363,10 @@ def get_QFI_bound_vals(
     kraus_ops_m = [_log_channel_to_kraus_ops(time * generator_m, op_shape) for time in times]
 
     # compute bound at each time
-    vals_bound = np.zeros(len(times), dtype=complex)
+    vals_bound = np.zeros(len(times))
     for tt, state in enumerate(states):
 
-        op_A = op_B = 0
+        op_A = op_B = np.zeros_like(states[0])
         for kraus_vec_p, kraus_vec_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
             kraus_op_p = kraus_vec_p.reshape(op_shape)
             kraus_op_m = kraus_vec_m.reshape(op_shape)
@@ -379,7 +379,7 @@ def get_QFI_bound_vals(
 
         term_A = state.conj().ravel() @ op_A.ravel()
         term_B = state.conj().ravel() @ op_B.ravel()
-        vals_bound[tt] = term_A - term_B**2
+        vals_bound[tt] = (term_A - term_B**2).real
 
     return 4 * vals_bound
 
@@ -387,7 +387,7 @@ def get_QFI_bound_vals(
 def _log_channel_to_kraus_ops(
     log_channel: scipy.sparse.spmatrix, op_shape: tuple[int, ...]
 ) -> np.ndarray:
-    """Get the Kraus operators of a quantum channel, specified by its natural logarithm."""
+    """Get the Kraus operators of a quantum channel specified by its natural logarithm."""
     channel = np.array(scipy.sparse.linalg.expm(log_channel.tocsc()).todense())
     vals, vecs = np.linalg.eigh(channel)
     return [
