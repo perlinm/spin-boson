@@ -76,12 +76,8 @@ def collective_Sz(num_spins: int) -> qutip.Qobj:
 
 
 def get_spin_vacuum_state(num_spins: int) -> qutip.Qobj:
-    """Construct the vacuum state for a collection of spins.
-
-    Somewhat confusingly, the vacuum state is the all-spin-down state, or all-|1> state.
-    """
-    states = [qutip.fock(2, 1)] * num_spins
-    return qutip.tensor(*states)
+    """Construct the vacuum (all-spin-down) state for a collection of spins."""
+    return qutip.ket("d" * num_spins)
 
 
 @_with_default_boson_dim
@@ -105,6 +101,14 @@ def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qut
 def get_ghz_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
     """Construct a GHZ state with a boson vacuum."""
     return qutip.tensor(qutip.ghz_state(num_spins), qutip.fock(boson_dim, 0))
+
+
+@_with_default_boson_dim
+def get_state_X(num_spins: int, boson_dim: int) -> qutip.Qobj:
+    """Construct an X-polarized spin state with a boson vacuum."""
+    array = np.ones(2**num_spins) / np.sqrt(2**num_spins)
+    state = qutip.Qobj(array, dims=[[2] * num_spins, [1] * num_spins])
+    return qutip.tensor(state, qutip.fock(boson_dim, 0))
 
 
 ################################################################################

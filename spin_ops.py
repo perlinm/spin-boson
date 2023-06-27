@@ -309,7 +309,23 @@ def _get_coef_D(op: Literal["z", "+", "-"], spin_val: float, spin_proj: float) -
 
 
 def get_vacuum_state(num_spins: int) -> np.ndarray:
+    """Construct the vacuum (all-spin-down) state for a collection of spins."""
     return get_dicke_state(num_spins, 0)
+
+
+def get_state_X(num_spins: int) -> np.ndarray:
+    """Construct an X-polarized spin state."""
+    if num_spins == 0:
+        return np.ones(1)
+
+    vals = [
+        np.sqrt(scipy.special.binom(num_spins, spins_up) / 2**num_spins)
+        for spins_up in range(num_spins + 1)
+    ]
+    state_vec = np.outer(vals, vals).ravel()
+    state = np.zeros(get_spin_op_dim(num_spins))
+    state[-state_vec.size :] = state_vec
+    return state
 
 
 def get_dicke_state(num_spins: int, num_excitations: int) -> np.ndarray:

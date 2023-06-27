@@ -28,6 +28,7 @@ def get_file_path(
 
 
 get_initial_state: Dict[str, Callable[[int], np.ndarray]] = {
+    "x-polarized": methods.get_state_X,
     "ghz": methods.get_ghz_state,
     "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1, boson_dim=2),
     "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2, boson_dim=3),

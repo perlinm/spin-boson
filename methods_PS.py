@@ -2,7 +2,7 @@
 Contents: Methods for simulating a spin-boson system with permutational symmetry.
 Author: Michael A. Perlin (2023)
 """
-from typing import Any, Callable, Iterator, Optional, Sequence, TypeVar
+from typing import Any, Callable, Iterator, Optional, TypeVar
 
 import numpy as np
 import scipy
@@ -164,6 +164,7 @@ def _with_boson_vacuum(get_spin_state: Callable[..., np.ndarray]) -> Callable[..
 get_vacuum_state = _with_boson_vacuum(spin_ops.get_vacuum_state)
 get_dicke_state = _with_boson_vacuum(spin_ops.get_dicke_state)
 get_ghz_state = _with_boson_vacuum(spin_ops.get_ghz_state)
+get_state_X = _with_boson_vacuum(spin_ops.get_state_X)
 
 
 ################################################################################
