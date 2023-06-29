@@ -118,21 +118,28 @@ def get_state_X(num_spins: int, boson_dim: int) -> qutip.Qobj:
 @functools.cache
 @_with_default_boson_dim
 def get_hamiltonian(
-    num_spins: int, splitting: float, coupling: float, boson_dim: int
+    num_spins: int,
+    spin_splitting: float,
+    boson_splitting: float,
+    coupling: float,
+    *,
+    boson_dim: int,
 ) -> qutip.Qobj:
     """
-    Construct the Hamiltonian `splitting * (Sz + N) + coupling * (Sp a + Sm a^dag)`, where:
+    Construct the Hamiltonian
+    `spin_splitting * Sz + boson_splitting * N + coupling * (Sp a + Sm a^dag)`,
+    where:
     - `Sz` is a spin-z operator for the spins
     - `Sm` and `Sp` are collective spin-lowering and spin-raising operators
     - `N` is the number operator for the bosonic mode
     - `a` and `a^dag` are lowering and raising operators for the bosonic mode
-    - `splitting` and `coupling` are scalars
+    - `spin_splitting`, `boson_splitting`, and `coupling` are scalars
     """
     spin_term = qutip.tensor(collective_Sz(num_spins), qutip.qeye(boson_dim))
-    resonator_term = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.num(boson_dim))
+    boson_term = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.num(boson_dim))
     coupling_op = qutip.tensor(collective_raise(num_spins), qutip.destroy(boson_dim))
     coupling_term = coupling_op + coupling_op.dag()
-    return splitting * (spin_term + resonator_term) + coupling * coupling_term
+    return spin_splitting * spin_term + boson_splitting * boson_term + coupling * coupling_term
 
 
 @functools.cache
@@ -177,10 +184,15 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
 
 @functools.cache
 def get_hamiltonian_superop(
-    num_spins: int, splitting: float, coupling: float
+    num_spins: int,
+    spin_splitting: float,
+    boson_splitting: float,
+    coupling: float,
 ) -> scipy.sparse.spmatrix:
     """Get the (Lie-algebraic) adjoint representation of a Hamiltonian."""
-    return to_adjoint_rep(get_hamiltonian(num_spins, splitting, coupling).data)
+    return to_adjoint_rep(
+        get_hamiltonian(num_spins, spin_splitting, boson_splitting, coupling).data
+    )
 
 
 @functools.cache
@@ -261,7 +273,8 @@ def get_QFI(
 def get_QFI_vals(
     times: np.ndarray,
     num_spins: int,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     decay_res: float,
     decay_spin: float,
@@ -275,10 +288,10 @@ def get_QFI_vals(
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
     boson_dim = initial_state.shape[0] // 2**num_spins
     hamiltonian_p = get_hamiltonian(
-        num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim
+        num_spins, spin_splitting, boson_splitting, coupling + diff_step / 2, boson_dim=boson_dim
     )
     hamiltonian_m = get_hamiltonian(
-        num_spins, splitting, coupling - diff_step / 2, boson_dim=boson_dim
+        num_spins, spin_splitting, boson_splitting, coupling - diff_step / 2, boson_dim=boson_dim
     )
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
 
@@ -305,7 +318,8 @@ def get_QFI_vals(
 def get_QFI_bound_vals(
     times: np.ndarray,
     num_spins: int,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     decay_res: float,
     decay_spin: float,
@@ -321,7 +335,7 @@ def get_QFI_bound_vals(
     state_dims = [initial_state.dims[0]] * 2
 
     # compute time-evolved states
-    hamiltonian = get_hamiltonian(num_spins, splitting, coupling, boson_dim=boson_dim)
+    hamiltonian = get_hamiltonian(num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim)
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
     states = get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
 

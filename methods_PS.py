@@ -61,19 +61,22 @@ def get_boson_state(dim: int, index: int = 0) -> np.ndarray:
 @_with_default_boson_dim
 def get_hamiltonian_generator(
     num_spins: int,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     *,
     boson_dim: int,
 ) -> scipy.sparse.spmatrix:
     """Construct the generator of coherent time evolution for a vectorized density matrix.
 
-    The corresponding Hamiltonian is `splitting * (Sz + N) + coupling * (Sp a + Sm a^dag)`, where:
+    The corresponding Hamiltonian is
+    `spin_splitting * Sz + boson_splitting * N + coupling * (Sp a + Sm a^dag)`,
+    where:
     - `Sz` is a spin-z operator for the spins
     - `Sm` and `Sp` are collective spin-lowering and spin-raising operators
     - `N` is the number operator for the bosonic mode
     - `a` and `a^dag` are lowering and raising operators for the bosonic mode
-    - `splitting` and `coupling` are scalars
+    - `spin_splitting`, `boson_splitting`, and `coupling` are scalars
     """
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     spin_iden = scipy.sparse.identity(spin_op_dim)
@@ -86,7 +89,7 @@ def get_hamiltonian_generator(
     )
 
     op_num = get_boson_num_op(boson_dim)
-    cavity_term = scipy.sparse.kron(
+    boson_term = scipy.sparse.kron(
         spin_iden, scipy.sparse.kron(op_num, boson_iden) - scipy.sparse.kron(boson_iden, op_num)
     )
 
@@ -103,7 +106,9 @@ def get_hamiltonian_generator(
     coupling_op = coupling_op_L - coupling_op_R
     coupling_term = coupling_op + coupling_op.T
 
-    hamiltonian_bracket = splitting * (spin_term + cavity_term) + coupling * coupling_term
+    hamiltonian_bracket = (
+        spin_splitting * spin_term + boson_splitting * boson_term + coupling * coupling_term
+    )
     return -1j * hamiltonian_bracket
 
 
@@ -230,7 +235,8 @@ def get_QFI(
 def get_QFI_vals(
     times: np.ndarray,
     num_spins: int,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     decay_res: float,
     decay_spin: float,
@@ -249,10 +255,10 @@ def get_QFI_vals(
     # compute the generators of time evolution
     dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
     hamiltonian_p = get_hamiltonian_generator(
-        num_spins, splitting, coupling + diff_step / 2, boson_dim=boson_dim
+        num_spins, spin_splitting, boson_splitting, coupling + diff_step / 2, boson_dim=boson_dim
     )
     hamiltonian_m = get_hamiltonian_generator(
-        num_spins, splitting, coupling - diff_step / 2, boson_dim=boson_dim
+        num_spins, spin_splitting, boson_splitting, coupling - diff_step / 2, boson_dim=boson_dim
     )
     generator_p = hamiltonian_p + dissipator
     generator_m = hamiltonian_m + dissipator
@@ -326,7 +332,8 @@ def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[n
 def get_QFI_bound_vals(
     times: np.ndarray,
     num_spins: int,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     decay_res: float,
     decay_spin: float,
@@ -342,7 +349,9 @@ def get_QFI_bound_vals(
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 
     # compute time-evolved states
-    hamiltonian = get_hamiltonian_generator(num_spins, splitting, coupling, boson_dim=boson_dim)
+    hamiltonian = get_hamiltonian_generator(
+        num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim
+    )
     dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
     generator = hamiltonian + dissipator
     op_shape = (spin_op_dim, boson_dim, boson_dim)

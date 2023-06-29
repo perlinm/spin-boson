@@ -46,7 +46,8 @@ def compute_QFI_vals(
     num_spins: int,
     decay_res: float,
     decay_spin: float,
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     initial_state: np.ndarray,
     file_QFI: str,
@@ -58,7 +59,8 @@ def compute_QFI_vals(
     vals_QFI = methods.get_QFI_vals(
         times,
         num_spins,
-        splitting,
+        spin_splitting,
+        boson_splitting,
         coupling,
         decay_res,
         decay_spin,
@@ -75,7 +77,8 @@ def batch_compute_QFI_vals(
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
-    splitting: float,
+    spin_splitting: float,
+    boson_splitting: float,
     coupling: float,
     state_keys: Sequence[str],
     data_dir: str,
@@ -101,7 +104,8 @@ def batch_compute_QFI_vals(
                 num_spins,
                 decay_res,
                 decay_spin,
-                splitting,
+                spin_splitting,
+                boson_splitting,
                 coupling,
                 initial_state,
                 file_QFI,
@@ -132,7 +136,8 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
 
     # default physical parameters
     parser.add_argument("--coupling", type=float, default=1)
-    parser.add_argument("--splitting", type=float, default=0)
+    parser.add_argument("--spin_splitting", type=float, default=0)
+    parser.add_argument("--boson_splitting", type=float, default=0)
     parser.add_argument("--max_time", type=float, default=10)
     parser.add_argument("--time_points", type=int, default=201)
 
@@ -170,7 +175,8 @@ if __name__ == "__main__":
         args.num_spins,
         args.decay_res,
         args.decay_spin,
-        args.splitting,
+        args.spin_splitting,
+        args.boson_splitting,
         args.coupling,
         args.state_keys,
         args.data_dir,
