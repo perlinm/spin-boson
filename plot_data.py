@@ -48,7 +48,7 @@ def get_all_data(
 
 
 def extract_maxima(vals_QFI: np.ndarray) -> np.ndarray:
-    vals_max = [vals_QFI[idx][1, :].max() for idx in np.ndindex(vals_QFI.shape)]
+    vals_max = [vals_QFI[idx][:, 1].max() for idx in np.ndindex(vals_QFI.shape)]
     return np.array(vals_max).reshape(vals_QFI.shape)
 
 

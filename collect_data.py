@@ -7,9 +7,10 @@ import argparse
 import itertools
 import multiprocessing
 import os
+import re
 import sys
 import time
-from typing import Callable, Dict, Sequence
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -23,16 +24,21 @@ def get_data_dir(data_dir: str, state_key: str) -> str:
 def get_file_path(
     data_dir: str, prefix: str, state_key: str, num_spins: int, decay_res: float, decay_spin: float
 ) -> str:
-    data_dir = get_data_dir(data_dir, state_key)
-    return os.path.join(data_dir, f"{prefix}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}.txt")
+    simulation_tag = f"{state_key}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}.txt"
+    return os.path.join(data_dir, f"{prefix}_{simulation_tag}")
 
 
-get_initial_state: Dict[str, Callable[[int], np.ndarray]] = {
-    "x-polarized": methods.get_state_X,
-    "ghz": methods.get_ghz_state,
-    "dicke-1": lambda num_spins: methods.get_dicke_state(num_spins, 1, boson_dim=2),
-    "dicke-2": lambda num_spins: methods.get_dicke_state(num_spins, 2, boson_dim=3),
-}
+def state_constructor(state_key: str) -> Callable[[int], np.ndarray]:
+    if state_key == "x-polarized":
+        return methods.get_state_X
+    if state_key == "ghz":
+        return methods.ghz
+    if re.match("dicke-[0-9]+$", state_key):
+        excitations = int(state_key.strip("dicke-"))
+        return lambda num_spins: methods.get_dicke_state(
+            num_spins, excitations, boson_dim=excitations + 1
+        )
+    raise ValueError(f"initial state not recognized: {state_key}")
 
 
 def compute_QFI_vals(
@@ -59,7 +65,9 @@ def compute_QFI_vals(
         initial_state,
     )
     sim_times = times[: len(vals_QFI)]
-    np.savetxt(file_QFI, np.vstack([sim_times, vals_QFI]))
+
+    os.makedirs(os.path.dirname(file_QFI), exist_ok=True)
+    np.savetxt(file_QFI, np.array([sim_times, vals_QFI]).T, header="time, QFI")
 
 
 def batch_compute_QFI_vals(
@@ -75,9 +83,6 @@ def batch_compute_QFI_vals(
     recompute: bool = False,
     status_update: bool = False,
 ) -> None:
-    for state_key in state_keys:
-        os.makedirs(get_data_dir(data_dir, state_key), exist_ok=True)
-
     if num_jobs > 1:
         processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=processes)
@@ -90,7 +95,7 @@ def batch_compute_QFI_vals(
         file_QFI = get_file_path(data_dir, "qfi", *args)
 
         if not os.path.isfile(file_QFI) or recompute:
-            initial_state = get_initial_state[state_key](num_spins)
+            initial_state = state_constructor(state_key)(num_spins)
             job_args = (
                 times,
                 num_spins,
@@ -113,15 +118,12 @@ def batch_compute_QFI_vals(
 
 
 def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
-
     # parse arguments
     parser = argparse.ArgumentParser(
         description="Compute QFI.",
         formatter_class=argparse.MetavarTypeHelpFormatter,
     )
-    parser.add_argument(
-        "--state_keys", type=str, nargs="+", choices=get_initial_state.keys(), required=True
-    )
+    parser.add_argument("--state_keys", type=str, nargs="+", required=True)
     parser.add_argument("--num_spins", type=int, nargs="+", required=True)
 
     parser.add_argument("--decay", type=float, nargs="+")
@@ -159,7 +161,6 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-
     start = time.time()
 
     args = get_simulation_args(sys.argv)
