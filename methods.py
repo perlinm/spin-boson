@@ -313,6 +313,7 @@ def get_QFI_vals(
 
 ################################################################################
 # Fisher info bound calculation
+# WARNING: CURRENTLY BROKEN
 
 
 def get_QFI_bound_vals(

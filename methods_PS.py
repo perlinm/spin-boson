@@ -327,6 +327,7 @@ def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[n
 
 ################################################################################
 # Fisher info bound calculation
+# WARNING: CURRENTLY BROKEN
 
 
 def get_QFI_bound_vals(
