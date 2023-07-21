@@ -146,7 +146,7 @@ if __name__ == "__main__":
         plt.figure(figsize=figsize)
         plt.title(rf"$\kappa/g={kappa}$, $\gamma/g={gamma}$")
         for ss, state_key in enumerate(args.state_keys):
-            plt.plot(args.num_spins, vals_max[ss, kk, gg, :], "o", label=state_key)
+            plt.plot(args.num_spins, vals_max[ss, kk, gg, :], "ko", label=state_key)
         plt.xlabel("$N$")
         plt.ylabel(r"QFI $\times g^2$")
         plt.legend(loc="best")
