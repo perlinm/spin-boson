@@ -10,7 +10,7 @@ job_dir = "jobs"
 
 num_spin_vals = list(range(2, 21))
 decay_res_vals = [f"{0.2 * kk:.1f}" for kk in range(1, 16)]
-state_keys = ["dicke-1", "dicke-2", "ghz", "x-polarized"]
+state_keys = ["dicke-1", "dicke-2", "dicke-6", "ghz", "x-polarized"]
 
 decay_spin = float(sys.argv[1])
 decay_spin_vals = [decay_spin]
