@@ -151,6 +151,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     # miscellaneous arguments
     parser.add_argument("--num_jobs", type=int, default=1)
     parser.add_argument("--recompute", action="store_true", default=False)
+    parser.add_argument("--plot_time_series", action="store_true", default=False)
 
     args = parser.parse_args(sys_argv[1:])
 
