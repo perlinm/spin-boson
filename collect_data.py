@@ -32,7 +32,7 @@ def state_constructor(state_key: str) -> Callable[[int], np.ndarray]:
     if state_key == "x-polarized":
         return methods.get_state_X
     if state_key == "ghz":
-        return methods.ghz
+        return methods.get_ghz_state
     if re.match("dicke-[0-9]+$", state_key):
         excitations = int(state_key.strip("dicke-"))
         return lambda num_spins: methods.get_dicke_state(
@@ -94,6 +94,9 @@ def batch_compute_QFI_vals(
     for num_spins, decay_res, decay_spin, state_key in itertools.product(
         num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
     ):
+        if re.match("dicke-[0-9]+$", state_key) and int(state_key.strip("dicke-")) > num_spins:
+            continue
+
         args = (state_key, num_spins, decay_res, decay_spin)
         file_QFI = get_file_path(data_dir, "qfi", *args)
 

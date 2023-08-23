@@ -8,11 +8,14 @@ import sys
 
 job_dir = "jobs"
 
-num_spin_vals = list(range(2, 21))
-decay_res_vals = [f"{0.2 * kk:.1f}" for kk in range(1, 16)]
-state_keys = ["dicke-1", "dicke-2", "dicke-6", "ghz", "x-polarized"]
+max_spins = 20
+num_spin_vals = list(range(max_spins + 1))
+state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in num_spin_vals]
 
-decay_spin = float(sys.argv[1])
+decay_res = sys.argv[1]
+decay_spin = sys.argv[2]
+
+decay_res_vals = [decay_res]
 decay_spin_vals = [decay_spin]
 
 spin_splitting_vals = [0]
@@ -25,7 +28,7 @@ spin_splitting_str = " ".join(map(str, spin_splitting_vals))
 boson_splitting_str = " ".join(map(str, boson_splitting_vals))
 state_keys_str = " ".join(state_keys)
 
-job_name = f"qfi_N{max(num_spin_vals)}_g{decay_spin:.2f}"
+job_name = f"qfi_N{max_spins}_k{decay_res}_g{decay_spin}"
 base_name = os.path.join(job_dir, job_name)
 
 log_text = f"""#!/bin/sh
