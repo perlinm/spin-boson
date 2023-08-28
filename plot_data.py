@@ -65,7 +65,7 @@ def get_scaling_exponent(
 
 
 def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
-    """Get the fit parameters (a, b) in y ~= a (x-b)^c."""
+    """Get the fit parameters (a,b) in y ~= a x^b."""
     fit_params, _ = scipy.optimize.curve_fit(
         lambda xx, aa, bb: aa * xx**bb,
         x_vals,
@@ -231,10 +231,10 @@ if __name__ == "__main__":
             plt.close()
 
     """
-    QFI scaling exponent as a function of decay rates.
+    Surface plot of QFI scaling exponent as a function of decay rates.
     Fixes initial state.
     """
-    if plot == "exponents":
+    if plot == "surface_exponents":
         fig_dir = get_fig_dir(plot)
         state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in range(1, 16)]
         for state_key in state_keys:
