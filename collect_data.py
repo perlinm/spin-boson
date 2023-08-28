@@ -148,13 +148,10 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     default_data_dir = os.path.join(script_dir, "data")
     parser.add_argument("--data_dir", type=str, default=default_data_dir)
-    default_fig_dir = os.path.join(script_dir, "figures")
-    parser.add_argument("--fig_dir", type=str, default=default_fig_dir)
 
     # miscellaneous arguments
     parser.add_argument("--num_jobs", type=int, default=1)
     parser.add_argument("--recompute", action="store_true", default=False)
-    parser.add_argument("--plot_time_series", action="store_true", default=False)
 
     args = parser.parse_args(sys_argv[1:])
 
