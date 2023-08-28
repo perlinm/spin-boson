@@ -15,15 +15,6 @@ import scipy
 from collect_data import get_file_path, get_simulation_args
 
 
-def poly_func(xx: float, aa: float, bb: float) -> float:
-    return aa * xx**bb
-
-
-def get_fit_exponent(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
-    fit_params, _ = scipy.optimize.curve_fit(poly_func, x_vals, y_vals)
-    return fit_params[1]  # return the second parameter in poly_func
-
-
 def get_all_data(
     state_key_vals: Sequence[str],
     num_spin_vals: Sequence[int],
@@ -32,7 +23,12 @@ def get_all_data(
     data_dir: str,
 ) -> np.ndarray:
     """Retrieve all simulated QFI data.
-    Results are organized into arrays indexed by key = (spin_num, decay_res, decay_spin).
+
+    Results are organized into arrays indexed by
+    [state_key, decay_res, decay_spin, spin_num].
+
+    Each choice of keys yields a 2-D array `data` of shape (2, num_time_points),
+    where `data[:, 0]` are simulation times, and `data[:, 1]` are values of QFI.
     """
     shape = (len(state_key_vals), len(decay_res_vals), len(decay_spin_vals), len(num_spin_vals))
     vals_QFI = np.zeros(shape, dtype=object)
@@ -49,46 +45,38 @@ def get_all_data(
 
 
 def extract_maxima(vals_QFI: np.ndarray) -> np.ndarray:
+    """Maximize QFI data over simulation time.
+
+    Results are organized into arrays indexed by
+    [state_key, decay_res, decay_spin, spin_num].
+    """
     vals_max = [vals_QFI[idx][:, 1].max() for idx in np.ndindex(vals_QFI.shape)]
     return np.array(vals_max).reshape(vals_QFI.shape)
 
 
-def get_maxima(
-    state_key_vals: Sequence[str],
-    num_spin_vals: Sequence[int],
-    decay_res_vals: Sequence[float],
-    decay_spin_vals: Sequence[float],
-    data_dir: str,
-) -> np.ndarray:
-    """Maximize QFI data over simulation time.
-    Results are organized into arrays indexed by key = (spin_num, decay_res, decay_spin).
-    """
-    vals_QFI = get_all_data(
-        state_key_vals, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir
-    )
-    return extract_maxima(vals_QFI)
-
-
 def extract_exponents(num_spin_vals: Sequence[int], vals_max: np.ndarray) -> np.ndarray:
-    exponent_vals = [
-        get_fit_exponent(num_spin_vals, tuple(vals_max[ss, kk, gg, :]))
-        for ss, kk, gg in np.ndindex(vals_max.shape[:-1])
-    ]
-    return np.array(exponent_vals).reshape(vals_max.shape[:-1])
+    """Extract QFI scaling exponents.
 
+    Specifically, compute the exponent `b` in `max_time QFI(time) ~= a num_spins^b`.
 
-def get_exponents(
-    state_key: str,
-    num_spin_vals: Sequence[int],
-    decay_res_vals: Sequence[float],
-    decay_spin_vals: Sequence[float],
-    data_dir: str,
-) -> np.ndarray:
-    """Get the scaling of QFI and SA-QFI with spin number.
-    Results are organized into arrays indexed by [decay_res, decay_spin].
+    Results are organized into arrays indexed by
+    [state_key, decay_res, decay_spin].
     """
-    vals_max = get_maxima(state_key, num_spin_vals, decay_res_vals, decay_spin_vals, data_dir)
-    return extract_exponents(num_spin_vals, vals_max)
+    shape = vals_max.shape[:-1]
+    exponent_vals = [
+        get_exp_fit_params(num_spin_vals, vals_max[ss_kk_gg])[1] for ss_kk_gg in np.ndindex(shape)
+    ]
+    return np.array(exponent_vals).reshape(shape)
+
+
+def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
+    """Get the fit parameters (a, b) in y ~= a x^b."""
+    fit_params, _ = scipy.optimize.curve_fit(
+        lambda xx, aa, bb: aa * xx**bb,
+        x_vals,
+        y_vals,
+    )
+    return fit_params
 
 
 if __name__ == "__main__":
