@@ -9,6 +9,7 @@ import os
 import sys
 from typing import Sequence
 
+import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -74,7 +75,7 @@ def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
     return fit_params
 
 
-def get_fig_dir(subdir: str, base_dir: str = "figues") -> str:
+def get_fig_dir(subdir: str = "", base_dir: str = "figues") -> str:
     """Make and return a figure directory."""
     fig_dir = os.path.join(base_dir, subdir)
     os.makedirs(fig_dir, exist_ok=True)
@@ -260,8 +261,81 @@ if __name__ == "__main__":
             fig.colorbar(color_mesh, label="scaling exponent")
             ax.set_xlabel(r"$\kappa/g$")
             ax.set_ylabel(r"$\gamma/g$")
-            plt.tight_layout()
+            plt.tight_layout(pad=0.1)
 
             fig_name = f"exponents_{state_key}.pdf"
             plt.savefig(os.path.join(fig_dir, fig_name))
             plt.close()
+
+    """
+    Surface plot of QFI maximum as a function of decay rates.
+    Maximizes over intial Dicke state index.
+    Fixes spin number.
+    """
+    if plot == "surface_maxima":
+        fig_dir = get_fig_dir()
+
+        fig, ax = plt.subplots(figsize=figsize)
+        num_spins = 20
+        plt.title(rf"$N={num_spins}$")
+
+        state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
+        maxima = [
+            [
+                max(
+                    [
+                        get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                        for state_key in state_keys
+                    ]
+                )
+                for decay_spin in decay_vals
+            ]
+            for decay_res in decay_vals
+        ]
+
+        color_mesh = ax.pcolormesh(
+            decay_vals, decay_vals, np.array(maxima).T, norm=colors.LogNorm()
+        )
+        fig.colorbar(color_mesh, label=r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$")
+        ax.set_xlabel(r"$\kappa/g$")
+        ax.set_ylabel(r"$\gamma/g$")
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"{plot}_N{num_spins}.pdf"
+        plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.close()
+
+    """
+    Surface plot of optimal Dicke state index as a function of decay rates.
+    Fixes spin number.
+    """
+    if plot == "surface_dicke":
+        fig_dir = get_fig_dir()
+
+        fig, ax = plt.subplots(figsize=figsize)
+        num_spins = 20
+        plt.title(rf"$N={num_spins}$")
+
+        state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
+        dicke_index = [
+            [
+                np.argmax(
+                    [
+                        get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                        for state_key in state_keys
+                    ]
+                )
+                for decay_spin in decay_vals
+            ]
+            for decay_res in decay_vals
+        ]
+
+        color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(dicke_index).T)
+        fig.colorbar(color_mesh, label=r"D-$n$")
+        ax.set_xlabel(r"$\kappa/g$")
+        ax.set_ylabel(r"$\gamma/g$")
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"{plot}_N{num_spins}.pdf"
+        plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.close()
