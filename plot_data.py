@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from collect_data import get_file_path
+import collect_data
 
 
 DEFAULT_DATA_DIR = "data"
@@ -33,7 +33,7 @@ def get_QFI_data(
     where `data[:, 0]` are simulation times, and `data[:, 1]` are values of QFI.
     """
     args = (state_key, num_spins, decay_res, decay_spin)
-    file_QFI = get_file_path(data_dir, "qfi", *args)
+    file_QFI = collect_data.get_file_path(data_dir, "qfi", *args)
     return np.loadtxt(file_QFI, unpack=True)
 
 
@@ -87,6 +87,7 @@ def is_invalid(state_key: str, num_spins: int) -> bool:
 
 
 def get_state_name(state_key: str) -> str:
+    """Get the name of a given initial state."""
     if state_key == "ghz":
         return "GHZ"
     if state_key == "x-polarized":
