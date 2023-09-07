@@ -62,17 +62,21 @@ def get_scaling_exponent(
     max_QFI = [
         get_max_QFI(state_key, decay_res, decay_spin, num_spins) for num_spins in num_spin_vals
     ]
-    return get_exp_fit_params(num_spin_vals, max_QFI)[-1]
+    return get_exp_fit_params(num_spin_vals, max_QFI)[0][-1]
 
 
 def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
-    """Get the fit parameters (a,b) in y ~= a x^b."""
-    fit_params, _ = scipy.optimize.curve_fit(
-        lambda xx, aa, bb: aa * xx**bb,
+    """Get the fit parameters (a,b,c) in y ~= a (x-b)^c."""
+    max_offset = x_vals[0]
+    fit_params, fit_cov = scipy.optimize.curve_fit(
+        lambda xx, aa, bb, cc: aa * (xx - bb) ** cc,
         x_vals,
         y_vals,
+        p0=(1, max_offset // 2, 1),
+        bounds=[(0, 0, 0), (np.inf, max_offset, 3)],
+        maxfev=10**5,
     )
-    return fit_params
+    return fit_params, fit_cov
 
 
 def get_fig_dir(subdir: str = "", base_dir: str = "figues") -> str:
@@ -104,7 +108,7 @@ if __name__ == "__main__":
 
     fig_dir = "figures"
     figsize = (4, 3)
-    decay_vals = np.arange(0.2, 3.01, 0.2)
+    decay_vals = np.arange(0.2, 1.01, 0.2)
 
     """
     QFI as a function of time.
@@ -178,7 +182,7 @@ if __name__ == "__main__":
         fig_dir = get_fig_dir(plot)
         num_spins = 20
         num_spin_vals = list(range(num_spins + 1))
-        decay_vals = np.arange(0.4, 2.01, 0.4)
+        decay_vals = np.arange(0.2, 1.01, 0.2)
         for decay_res in decay_vals:
             if show_progress:
                 print(decay_res)
@@ -209,7 +213,7 @@ if __name__ == "__main__":
         fig_dir = get_fig_dir(plot)
         num_spins = 20
         num_spin_vals = list(range(num_spins + 1))
-        decay_vals = np.arange(0.4, 2.01, 0.4)
+        decay_vals = np.arange(0.2, 1.01, 0.2)
         for decay_spin in decay_vals:
             if show_progress:
                 print(decay_spin)
@@ -242,13 +246,11 @@ if __name__ == "__main__":
             if show_progress:
                 print(state_key)
 
-            fig, ax = plt.subplots(figsize=figsize)
-            plt.title(get_state_name(state_key))
-
-            min_num_spins, max_num_spins = 10, 20
+            min_num_spins, max_num_spins = 1, 20
             if "dicke" in state_key:
                 min_num_spins = max(min_num_spins, int(state_key.split("-")[1]))
             num_spin_vals = tuple(range(min_num_spins, max_num_spins + 1))
+
             exponents = [
                 [
                     get_scaling_exponent(state_key, decay_res, decay_spin, num_spin_vals)
@@ -257,6 +259,8 @@ if __name__ == "__main__":
                 for decay_res in decay_vals
             ]
 
+            fig, ax = plt.subplots(figsize=figsize)
+            plt.title(get_state_name(state_key))
             color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(exponents).T)
             fig.colorbar(color_mesh, label="scaling exponent")
             ax.set_xlabel(r"$\kappa/g$")
@@ -275,10 +279,7 @@ if __name__ == "__main__":
     if plot == "surface_maxima":
         fig_dir = get_fig_dir()
 
-        fig, ax = plt.subplots(figsize=figsize)
         num_spins = 20
-        plt.title(rf"$N={num_spins}$")
-
         state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
         maxima = [
             [
@@ -293,6 +294,8 @@ if __name__ == "__main__":
             for decay_res in decay_vals
         ]
 
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.title(rf"$N={num_spins}$")
         color_mesh = ax.pcolormesh(
             decay_vals, decay_vals, np.array(maxima).T, norm=colors.LogNorm()
         )
@@ -312,10 +315,7 @@ if __name__ == "__main__":
     if plot == "surface_dicke":
         fig_dir = get_fig_dir()
 
-        fig, ax = plt.subplots(figsize=figsize)
         num_spins = 20
-        plt.title(rf"$N={num_spins}$")
-
         state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
         dicke_index = [
             [
@@ -330,6 +330,8 @@ if __name__ == "__main__":
             for decay_res in decay_vals
         ]
 
+        fig, ax = plt.subplots(figsize=figsize)
+        plt.title(rf"$N={num_spins}$")
         color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(dicke_index).T)
         fig.colorbar(color_mesh, label=r"D-$n$")
         ax.set_xlabel(r"$\kappa/g$")
