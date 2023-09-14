@@ -168,6 +168,7 @@ if __name__ == "__main__":
             plt.xlabel(r"$N$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best")
+            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
             plt.tight_layout(pad=0.1)
 
             fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
@@ -200,6 +201,7 @@ if __name__ == "__main__":
             plt.xlabel(r"D-$n$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best", framealpha=1)
+            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
             plt.tight_layout(pad=0.1)
 
             fig_name = f"dicke-k_{decay_res:.2f}.pdf"
@@ -232,6 +234,7 @@ if __name__ == "__main__":
             plt.xlabel(r"D-$n$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best", framealpha=1)
+            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
             plt.tight_layout(pad=0.1)
 
             fig_name = f"dicke-g_{decay_spin:.2f}.pdf"
