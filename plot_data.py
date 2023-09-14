@@ -108,6 +108,7 @@ if __name__ == "__main__":
     fig_dir = "figures"
     figsize = (4, 3)
     decay_vals = np.arange(0.2, 1.01, 0.2)
+    dot_kwargs = dict(linestyle="-", marker=".")
 
     """
     QFI as a function of time.
@@ -162,7 +163,8 @@ if __name__ == "__main__":
                     get_max_QFI(state_key, decay_res, decay_spin, num_spins)
                     for num_spins in num_spin_vals
                 ]
-                plt.plot(num_spin_vals, max_QFI_vals, "o", label=get_state_name(state_key))
+                label = get_state_name(state_key)
+                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
             plt.xlabel(r"$N$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best")
@@ -193,7 +195,8 @@ if __name__ == "__main__":
                     get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins)
                     for nn in num_spin_vals
                 ]
-                plt.plot(num_spin_vals, max_QFI_vals, "o", label=rf"$\gamma/g={decay_spin:.2f}$")
+                label = rf"$\gamma/g={decay_spin:.2f}$"
+                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
             plt.xlabel(r"D-$n$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best", framealpha=1)
@@ -224,7 +227,8 @@ if __name__ == "__main__":
                     get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins)
                     for nn in num_spin_vals
                 ]
-                plt.plot(num_spin_vals, max_QFI_vals, "o", label=rf"$\kappa/g={decay_res:.2f}$")
+                label = rf"$\kappa/g={decay_res:.2f}$"
+                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
             plt.xlabel(r"D-$n$")
             plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
             plt.legend(loc="best", framealpha=1)
