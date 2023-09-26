@@ -105,11 +105,11 @@ if __name__ == "__main__":
     show_progress = True
 
     fig_dir = "figures"
-    figsize = (3.4, 2.4) if "surface" not in plot else (3, 2.4)
+    figsize = (3.4, 2.4)
     decay_vals = np.arange(0.2, 1.01, 0.2)
     dot_kwargs = dict(linestyle="-", marker=".")
 
-    # set fonts and use latex packages
+    figsize = (3.4, 2.4)
     font_size = 10
     params = {
         "font.family": "serif",
@@ -253,6 +253,19 @@ if __name__ == "__main__":
             plt.savefig(os.path.join(fig_dir, fig_name))
             plt.close()
 
+    figsize = (2.3, 1.8)
+    font_size = 8
+    params = {
+        "font.family": "serif",
+        "font.serif": "Computer Modern",
+        "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath}",
+        "font.size": font_size,
+        "axes.titlesize": font_size,
+        "axes.labelsize": font_size,
+    }
+    plt.rcParams.update(params)
+
     """
     Surface plot of QFI scaling exponent as a function of decay rates.
     Fixes initial state.
@@ -283,6 +296,7 @@ if __name__ == "__main__":
             fig.colorbar(color_mesh, label="scaling exponent")
             ax.set_xlabel(r"$\kappa/g$")
             ax.set_ylabel(r"$\gamma/g$")
+            plt.xticks(decay_vals)
             plt.tight_layout(pad=0.1)
 
             fig_name = f"exponents_{state_key}.pdf"
