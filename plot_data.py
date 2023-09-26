@@ -106,9 +106,22 @@ if __name__ == "__main__":
     show_progress = True
 
     fig_dir = "figures"
-    figsize = (4, 3)
+    figsize = (3.4, 2.4)
     decay_vals = np.arange(0.2, 1.01, 0.2)
     dot_kwargs = dict(linestyle="-", marker=".")
+
+    # set fonts and use latex packages
+    font_size = 10
+    params = {
+        "font.family": "serif",
+        "font.serif": "Computer Modern",
+        "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath}",
+        "font.size": font_size,
+        "axes.titlesize": font_size,
+        "axes.labelsize": font_size,
+    }
+    plt.rcParams.update(params)
 
     """
     QFI as a function of time.
@@ -131,10 +144,10 @@ if __name__ == "__main__":
                 if is_invalid(state_key, num_spins):
                     continue
                 time, vals = get_QFI_data(state_key, decay_res, decay_spin, num_spins)
-                plt.plot(time, vals, label=rf"N={num_spins}")
+                plt.plot(time, vals, label=rf"$N={num_spins}$")
             plt.xlabel(r"time $\times g$")
             plt.ylabel(r"QFI $\times g^2$")
-            plt.legend(loc="best")
+            plt.legend(loc="lower right", framealpha=1)
             plt.tight_layout(pad=0.1)
 
             fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
