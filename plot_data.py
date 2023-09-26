@@ -66,7 +66,7 @@ def get_scaling_exponent(
 
 
 def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
-    """Get the fit parameters (a,b,c) in y ~= a (x-b)^c."""
+    """Get the fit parameters (a,b,c) in y ~= a x^c - b."""
     fit_params, fit_cov = scipy.optimize.curve_fit(
         lambda xx, aa, bb, cc: aa * xx**cc - bb,
         x_vals,
