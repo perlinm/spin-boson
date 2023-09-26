@@ -71,8 +71,7 @@ def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
         lambda xx, aa, bb, cc: aa * xx**cc - bb,
         x_vals,
         y_vals,
-        p0=(1, 0, 1),
-        bounds=[(0, 0, 0), (np.inf, np.inf, 3)],
+        p0=(y_vals[-1] / x_vals[-1], 0, 1),
         maxfev=10**5,
     )
     return fit_params, fit_cov
@@ -102,11 +101,11 @@ def get_state_name(state_key: str) -> str:
 
 
 if __name__ == "__main__":
-    plot = sys.argv[1] if len(sys.argv) > 1 else None
+    plot = sys.argv[1] if len(sys.argv) > 1 else ""
     show_progress = True
 
     fig_dir = "figures"
-    figsize = (3.4, 2.4)
+    figsize = (3.4, 2.4) if "surface" not in plot else (3, 2.4)
     decay_vals = np.arange(0.2, 1.01, 0.2)
     dot_kwargs = dict(linestyle="-", marker=".")
 
