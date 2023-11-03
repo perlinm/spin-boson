@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Contents: Script to simulate a spin-boson system.
-Author: Michael A. Perlin (2023)
-"""
+"""Script to simulate a spin-boson system."""
 import argparse
 import itertools
 import multiprocessing

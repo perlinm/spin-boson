@@ -1,7 +1,4 @@
-"""
-Contents: Methods for constructing operators for a spin system with permutational symmetry.
-Author: Michael A. Perlin (2023)
-"""
+"""Methods for constructing operators for a spin system with permutational symmetry."""
 import functools
 from typing import Iterator, Literal, Optional
 

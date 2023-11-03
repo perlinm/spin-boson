@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Contents: Script to generate slurm jobs.
-Author: Michael A. Perlin (2023)
-"""
+"""Script to generate slurm jobs."""
 import os
 import sys
 

@@ -1,7 +1,4 @@
-"""
-Contents: Test file for methods.py and methods_PS.py.
-Author: Michael A. Perlin (2023)
-"""
+"""Unit tests for methods.py and methods_PS.py"""
 from typing import Literal, Optional, Sequence
 
 import numpy as np

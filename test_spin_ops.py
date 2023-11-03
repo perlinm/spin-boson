@@ -1,7 +1,4 @@
-"""
-Contents: Test file for spin_ops.py.
-Author: Michael A. Perlin (2023)
-"""
+"""Unit tests for for spin_ops.py"""
 import itertools
 
 import numpy as np
@@ -55,7 +52,6 @@ def test_collective_ops() -> None:
 
 def test_spin_states() -> None:
     for num_spins in range(MAX_NUM_SPINS + 1):
-
         # construct left- and rigt-acting S_z
         op_Sz_L = spin_ops.get_Sz_L(num_spins)
         op_Sz_R = spin_ops.get_dual(op_Sz_L)

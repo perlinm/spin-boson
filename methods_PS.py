@@ -1,7 +1,4 @@
-"""
-Contents: Methods for simulating a spin-boson system with permutational symmetry.
-Author: Michael A. Perlin (2023)
-"""
+"""Methods for simulating a spin-boson system with permutational symmetry."""
 from typing import Any, Callable, Iterator, Optional, TypeVar
 
 import numpy as np

@@ -1,7 +1,4 @@
-"""
-Contents: Methods for simulating a spin-boson system using a QuTiP backend.
-Author: Michael A. Perlin (2023)
-"""
+"""Methods for simulating a spin-boson system using a QuTiP backend."""
 import functools
 from typing import Any, Callable, Optional, Sequence, TypeVar
 
