@@ -1,12 +1,12 @@
-"""Methods for simulating a spin-boson system using a QuTiP backend."""
-import functools
-from typing import Any, Callable, Optional, Sequence, TypeVar
+"""Methods for simulating a spin-boson system with permutational symmetry."""
+from typing import Any, Callable, Iterator, Optional, TypeVar
 
 import numpy as np
-import qutip
 import scipy
 
-DEFAULT_INTEGRATION_METHOD = "qutip"
+import spin_ops
+
+DEFAULT_INTEGRATION_METHOD = "DOP853"
 DEFAULT_RTOL = 1e-10  # relative/absolute error tolerance for numerical intgeration
 DEFAULT_ATOL = 1e-10
 DEFAULT_DIFF_STEP = 1e-3  # step size for finite-difference derivative
@@ -31,99 +31,42 @@ def _with_default_boson_dim(spin_func: Callable[..., ReturnType]) -> Callable[..
 
 
 ################################################################################
-# spin operator definitions
+# operator definitions
 
 
-def act_on(op: qutip.Qobj, target_index: int, num_spins: int) -> qutip.Qobj:
-    """Act with the given operator on the given spin (specified by index)."""
-    ops = [qutip.qeye(2)] * num_spins
-    ops[target_index] = op
-    return qutip.tensor(*ops)
+def get_boson_num_op(dim: int) -> scipy.sparse.spmatrix:
+    """Construct the number operator for a bosonic mode."""
+    shape = (dim, dim)
+    vals = range(dim)
+    return scipy.sparse.dia_matrix(([vals], [0]), shape)
 
 
-def collective_qubit_op(qubit_op: qutip.Qobj, num_spins: int) -> qutip.Qobj:
-    """Convert a single-qubit operator into a collective operator.
-
-    If `O` is a single-qubit operator, this method returns sum_j O_j."""
-    return sum(act_on(qubit_op, ss, num_spins) for ss in range(num_spins))
-
-
-def qubit_lower(num_spins: int, target_index: int) -> qutip.Qobj:
-    """Construct the lowering operator for single spin."""
-    return act_on(qutip.sigmam(), target_index, num_spins)
+def get_boson_lower_op(dim: int) -> scipy.sparse.spmatrix:
+    """Construct the lowering operator for a bosonic mode."""
+    shape = (dim, dim)
+    vals = [np.sqrt(val) for val in range(dim)]
+    return scipy.sparse.dia_matrix(([vals], [1]), shape)
 
 
-def collective_lower(num_spins: int) -> qutip.Qobj:
-    """Construct the a collective spin-lowering operator."""
-    return collective_qubit_op(qutip.sigmam(), num_spins)
-
-
-def collective_raise(num_spins: int) -> qutip.Qobj:
-    """Construct the a collective spin-raising operator."""
-    return collective_lower(num_spins).dag()
-
-
-def collective_Sz(num_spins: int) -> qutip.Qobj:
-    """Construct the a collective spin-z operator."""
-    return collective_qubit_op(qutip.sigmaz(), num_spins) / 2
-
-
-################################################################################
-# state definitions
-
-
-def get_spin_vacuum_state(num_spins: int) -> qutip.Qobj:
-    """Construct the vacuum (all-spin-down) state for a collection of spins."""
-    return qutip.ket("d" * num_spins)
+def get_boson_state(dim: int, index: int = 0) -> np.ndarray:
+    """Construct the n-occupation state |n> for a bosonic mode."""
+    state = np.zeros(dim)
+    state[index] = 1
+    return state
 
 
 @_with_default_boson_dim
-def get_vacuum_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
-    """Construct the vacuum state of a spin-boson system."""
-    return qutip.tensor(get_spin_vacuum_state(num_spins), qutip.fock(boson_dim, 0))
-
-
-@_with_default_boson_dim
-def get_dicke_state(num_spins: int, num_excitations: int, boson_dim: int) -> qutip.Qobj:
-    """Construct a Dicke state with a boson vacuum."""
-    spin_state = get_spin_vacuum_state(num_spins)
-    collective_Sp = collective_raise(num_spins)
-    for _ in range(num_excitations):
-        spin_state = collective_Sp * spin_state
-    spin_state = spin_state / np.linalg.norm(spin_state)
-    return qutip.tensor(spin_state, qutip.fock(boson_dim, 0))
-
-
-@_with_default_boson_dim
-def get_ghz_state(num_spins: int, boson_dim: int) -> qutip.Qobj:
-    """Construct a GHZ state with a boson vacuum."""
-    return qutip.tensor(qutip.ghz_state(num_spins), qutip.fock(boson_dim, 0))
-
-
-@_with_default_boson_dim
-def get_state_X(num_spins: int, boson_dim: int) -> qutip.Qobj:
-    """Construct an X-polarized spin state with a boson vacuum."""
-    array = np.ones(2**num_spins) / np.sqrt(2**num_spins)
-    state = qutip.Qobj(array, dims=[[2] * num_spins, [1] * num_spins])
-    return qutip.tensor(state, qutip.fock(boson_dim, 0))
-
-
-################################################################################
-# generic simulation methods
-
-
-@functools.cache
-@_with_default_boson_dim
-def get_hamiltonian(
+def get_hamiltonian_generator(
     num_spins: int,
     spin_splitting: float,
     boson_splitting: float,
     coupling: float,
     *,
     boson_dim: int,
-) -> qutip.Qobj:
-    """
-    Construct the Hamiltonian
+) -> scipy.sparse.spmatrix:
+    """Construct the generator of coherent time evolution for a vectorized density matrix.
+
+    The corresponding Hamiltonian is
     `spin_splitting * Sz + boson_splitting * N + coupling * (Sp a + Sm a^dag)`,
     where:
     - `Sz` is a spin-z operator for the spins
@@ -132,37 +75,62 @@ def get_hamiltonian(
     - `a` and `a^dag` are lowering and raising operators for the bosonic mode
     - `spin_splitting`, `boson_splitting`, and `coupling` are scalars
     """
-    spin_term = qutip.tensor(collective_Sz(num_spins), qutip.qeye(boson_dim))
-    boson_term = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.num(boson_dim))
-    coupling_op = qutip.tensor(collective_raise(num_spins), qutip.destroy(boson_dim))
-    coupling_term = coupling_op + coupling_op.dag()
-    return spin_splitting * spin_term + boson_splitting * boson_term + coupling * coupling_term
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    spin_iden = scipy.sparse.identity(spin_op_dim)
+    boson_iden = scipy.sparse.identity(boson_dim)
+
+    spin_term_L = spin_ops.get_Sz_L(num_spins)
+    spin_term = scipy.sparse.kron(
+        spin_term_L - spin_ops.get_dual(spin_term_L),
+        scipy.sparse.kron(boson_iden, boson_iden),
+    )
+
+    op_num = get_boson_num_op(boson_dim)
+    boson_term = scipy.sparse.kron(
+        spin_iden, scipy.sparse.kron(op_num, boson_iden) - scipy.sparse.kron(boson_iden, op_num)
+    )
+
+    op_Sp_L = spin_ops.get_Sp_L(num_spins)
+    op_lower = get_boson_lower_op(boson_dim)
+    coupling_op_L = scipy.sparse.kron(
+        op_Sp_L,
+        scipy.sparse.kron(op_lower, boson_iden),
+    )
+    coupling_op_R = scipy.sparse.kron(
+        spin_ops.get_dual(op_Sp_L),
+        scipy.sparse.kron(boson_iden, op_lower.T),
+    )
+    coupling_op = coupling_op_L - coupling_op_R
+    coupling_term = coupling_op + coupling_op.T
+
+    hamiltonian_bracket = (
+        spin_splitting * spin_term + boson_splitting * boson_term + coupling * coupling_term
+    )
+    return -1j * hamiltonian_bracket
 
 
-@functools.cache
 @_with_default_boson_dim
-def get_jump_ops(
-    num_spins: int, decay_res: float, decay_spin: float, boson_dim: int
-) -> list[qutip.Qobj]:
-    """Construct a list of jump operators corresponding to single-spin decay and boson decay."""
-    qubit_ops = [
-        np.sqrt(decay_spin) * qutip.tensor(qubit_lower(num_spins, ss), qutip.qeye(boson_dim))
-        for ss in range(num_spins)
-    ]
-    lower_res = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.destroy(boson_dim))
-    return qubit_ops + [np.sqrt(decay_res) * lower_res]
+def get_dissipator(
+    num_spins: int,
+    decay_res: float,
+    decay_spin: float,
+    *,
+    boson_dim: int,
+) -> scipy.sparse.spmatrix:
+    """Construct a dissipator that generates spin and boson decay.
 
-
-@functools.cache
-def get_identity_matrix(dim: int) -> scipy.sparse.spmatrix:
-    """Construct an identity matrix."""
-    return scipy.sparse.identity(dim)
-
-
-def to_adjoint_rep(matrix: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
-    """Construct the adjoint representation of a matrix (in the Lie algebra sense)."""
-    iden = get_identity_matrix(matrix.shape[0])
-    return scipy.sparse.kron(matrix, iden) - scipy.sparse.kron(iden, matrix.T)
+    The dissipator is represented by a super-operator that acts on a vectorized density matrix.
+    """
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    dissipator_res = scipy.sparse.kron(
+        scipy.sparse.identity(spin_op_dim),
+        to_dissipation_generator(get_boson_lower_op(boson_dim)),
+    )
+    dissipator_spin = scipy.sparse.kron(
+        spin_ops.get_local_dissipator(num_spins, "-"),
+        scipy.sparse.identity(boson_dim**2),
+    )
+    return decay_res * dissipator_res + decay_spin * dissipator_spin
 
 
 def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
@@ -172,99 +140,93 @@ def to_dissipation_generator(jump_op: scipy.sparse.spmatrix) -> scipy.sparse.spm
         J_generator @ rho_vec ~= J rho J^dag - 1/2 [J^dag J, rho]_+,
     where '[A, B]_+ = A B + B A', and '~=' denotes equality up to reshaping an array.
     """
-    identity = get_identity_matrix(jump_op.shape[0])
+    identity = scipy.sparse.identity(jump_op.shape[0])
     direct_term = scipy.sparse.kron(jump_op, jump_op.conj())
     op_JJ = jump_op.conj().T @ jump_op
     recycling_term = scipy.sparse.kron(op_JJ, identity) + scipy.sparse.kron(identity, op_JJ.T)
     return direct_term - recycling_term / 2
 
 
-@functools.cache
-def get_hamiltonian_superop(
-    num_spins: int,
-    spin_splitting: float,
-    boson_splitting: float,
-    coupling: float,
-) -> scipy.sparse.spmatrix:
-    """Get the (Lie-algebraic) adjoint representation of a Hamiltonian."""
-    return to_adjoint_rep(
-        get_hamiltonian(num_spins, spin_splitting, boson_splitting, coupling).data
-    )
+################################################################################
+# state definitions
 
 
-@functools.cache
-def get_jump_superop(num_spins: int, decay_res: float, decay_spin: float) -> scipy.sparse.spmatrix:
-    """Get the superoperators that generate spin and boson decay."""
-    return sum(
-        to_dissipation_generator(jump_op.data)
-        for jump_op in get_jump_ops(num_spins, decay_res, decay_spin)
-    )
+def _with_boson_vacuum(get_spin_state: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
+    """Turn spin-state constructors into spin-boson-state constructors."""
+
+    @_with_default_boson_dim
+    def get_state(num_spins: int, *args: Any, boson_dim: int):
+        boson_vacuum = np.zeros(boson_dim**2)
+        boson_vacuum[0] = 1
+        return np.kron(get_spin_state(num_spins, *args), boson_vacuum)
+
+    return get_state
 
 
-def get_states(
-    times: np.ndarray,
-    initial_state: qutip.Qobj,
-    hamiltonian: qutip.Qobj,
-    jump_ops: Sequence[qutip.Qobj] = (),
-    method: str = DEFAULT_INTEGRATION_METHOD,
-    rtol: float = DEFAULT_RTOL,
-    atol: float = DEFAULT_ATOL,
-) -> np.ndarray:
-    """For a given initial state, Hamiltonian, and jump operators, return states at later times."""
-    dim = initial_state.shape[0]
-    final_shape = (len(times), dim, dim)
-
-    if method == "qutip":
-        options = qutip.Options(rtol=rtol, atol=atol)
-        result = qutip.mesolve(hamiltonian, initial_state, times, jump_ops, options=options)
-        states = np.array([state.data.todense().ravel() for state in result.states])
-        return states.reshape(final_shape)
-
-    # construct initial state as a vectorized density matrix
-    initial_state_array = initial_state.data.todense()
-    initial_state_matrix = np.outer(initial_state_array, initial_state_array.conj())
-    initial_state_matrix_vec = initial_state_matrix.astype(complex).ravel()
-
-    # construct the generator of time evolution
-    ham_superop = to_adjoint_rep(hamiltonian.data)
-    jump_superop = sum(to_dissipation_generator(jump_op.data) for jump_op in jump_ops)
-    generator = ham_superop + jump_superop
-
-    # numerically integrate the initial state
-    solution = scipy.integrate.solve_ivp(
-        lambda time, state: generator @ state,
-        (times[0], times[-1]),
-        initial_state_matrix_vec,
-        t_eval=times,
-        method=method,
-        rtol=rtol,
-        atol=atol,
-    )
-    return solution.y.T.reshape(final_shape)
+get_vacuum_state = _with_boson_vacuum(spin_ops.get_vacuum_state)
+get_dicke_state = _with_boson_vacuum(spin_ops.get_dicke_state)
+get_ghz_state = _with_boson_vacuum(spin_ops.get_ghz_state)
+get_state_X = _with_boson_vacuum(spin_ops.get_state_X)
 
 
 ################################################################################
 # Fisher info calculation
 
 
+def get_states(
+    times: np.ndarray,
+    initial_state: np.ndarray,
+    generator: scipy.sparse.spmatrix,
+    method: str = DEFAULT_INTEGRATION_METHOD,
+    rtol: float = DEFAULT_RTOL,
+    atol: float = DEFAULT_ATOL,
+) -> np.ndarray:
+    """For a given initial state and generator of time evolution, return states at later times."""
+    solution = scipy.integrate.solve_ivp(
+        lambda time, state: generator @ state,
+        (times[0], times[-1]),
+        initial_state.ravel().astype(complex),
+        t_eval=times,
+        method=method,
+        rtol=rtol,
+        atol=atol,
+    )
+    return solution.y.T
+
+
 def get_QFI(
-    state: np.ndarray, state_diff: np.ndarray, etol_scale: float = DEFAULT_ETOL_SCALE
+    state: np.ndarray,
+    state_deriv: np.ndarray,
+    etol_scale: float = DEFAULT_ETOL_SCALE,
 ) -> float:
     """Compute the QFI from a state and its derivative w.r.t. the parameter to be estimated."""
-    vals, vecs = np.linalg.eigh(state)
+    # collect data from each block of the density matrix
+    block_nums = []  # numerators in contributions to the QFI
+    block_vals = []  # eigenvalues of the state
+
+    for block, block_deriv in zip(
+        spin_ops.get_spin_blocks(state),
+        spin_ops.get_spin_blocks(state_deriv),
+    ):
+        vals, vecs = np.linalg.eigh(block)
+        block_vals.append(vals)
+        block_nums.append(abs(vecs.conj().T @ block_deriv @ vecs) ** 2)
 
     # identify numerical cutoff for small eigenvalues, below which they get set to 0
-    etol = etol_scale * abs(min(vals))
-    vals[abs(vals) < etol] = 0
+    etol = etol_scale * abs(min(val for vals in block_vals for val in vals))
 
-    # numerators and denominators
-    nums = abs(vecs.conj().T @ state_diff @ vecs) ** 2
-    dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
+    val_QFI = 0
+    for vals, nums in zip(block_vals, block_nums):
+        vals[abs(vals) < etol] = 0
+        dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
-    # matrix of booleans (True/False) to ignore zero eigenvalues
-    include = ~np.isclose(dens, 0)  # matrix of booleans (True/False)
+        # matrix of booleans (True/False) to ignore zero eigenvalues
+        include = ~np.isclose(dens, 0)  # matrix of booleans (True/False)
 
-    return 2 * (nums[include] / dens[include]).sum()
+        # add contribution to the QFI from this block of the density matrix
+        val_QFI += (nums[include] / dens[include]).sum()
+
+    return 2 * val_QFI
 
 
 def get_QFI_vals(
@@ -275,37 +237,89 @@ def get_QFI_vals(
     coupling: float,
     decay_res: float,
     decay_spin: float,
-    initial_state: qutip.Qobj,
+    initial_state: np.ndarray,
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
     etol_scale: float = DEFAULT_ETOL_SCALE,
     diff_step: float = DEFAULT_DIFF_STEP,
+    terminate_early: bool = True,
 ) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
-    boson_dim = initial_state.shape[0] // 2**num_spins
-    hamiltonian_p = get_hamiltonian(
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
+
+    # compute the generators of time evolution
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    hamiltonian_p = get_hamiltonian_generator(
         num_spins, spin_splitting, boson_splitting, coupling + diff_step / 2, boson_dim=boson_dim
     )
-    hamiltonian_m = get_hamiltonian(
+    hamiltonian_m = get_hamiltonian_generator(
         num_spins, spin_splitting, boson_splitting, coupling - diff_step / 2, boson_dim=boson_dim
     )
-    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    generator_p = hamiltonian_p + dissipator
+    generator_m = hamiltonian_m + dissipator
 
-    def _get_states(hamiltonian: qutip.Qobj) -> np.ndarray:
-        return get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
+    # reshape the initial state
+    op_shape = (spin_op_dim, boson_dim, boson_dim)
+    initial_state = initial_state.reshape(op_shape)
+    vacuum_index = (-((num_spins + 1) ** 2), 0, 0)
 
-    states_p = _get_states(hamiltonian_p)
-    states_m = _get_states(hamiltonian_m)
+    def _get_states(
+        times: np.ndarray, initial_state: np.ndarray, generator: scipy.sparse.spmatrix
+    ) -> np.ndarray:
+        shape = (len(times),) + op_shape
+        return get_states(times, initial_state, generator, method, rtol, atol).reshape(shape)
 
-    # compute the QFI
-    vals_QFI = np.zeros(len(times))
-    for tt, (state_p, state_m) in enumerate(zip(states_p, states_m)):
-        state_avg = (state_p + state_m) / 2
-        state_diff = (state_p - state_m) / diff_step
-        vals_QFI[tt] = get_QFI(state_avg, state_diff, etol_scale)
+    if not terminate_early:
+        states_p = _get_states(times, initial_state, generator_p)
+        states_m = _get_states(times, initial_state, generator_m)
+        vals_QFI = _get_QFI_vals(states_p, states_m, vacuum_index, diff_step, etol_scale)
 
-    return vals_QFI
+    else:
+        max_QFI = 0.0
+        vals_QFI = [0.0]
+        initial_state_p = initial_state
+        initial_state_m = initial_state
+
+        for time_section in _get_time_sections(times):
+            states_p = _get_states(time_section, initial_state_p, generator_p)
+            states_m = _get_states(time_section, initial_state_m, generator_m)
+            section_vals_QFI = _get_QFI_vals(
+                states_p[1:], states_m[1:], vacuum_index, diff_step, etol_scale
+            )
+            vals_QFI.extend(section_vals_QFI)
+
+            max_QFI = max(max_QFI, max(section_vals_QFI))
+            if vals_QFI[-1] < max_QFI / 2:
+                break
+
+            initial_state_p = states_p[-1]
+            initial_state_m = states_m[-1]
+
+    return np.array(vals_QFI)
+
+
+def _get_QFI_vals(
+    states_p: np.ndarray,
+    states_m: np.ndarray,
+    vacuum_index: tuple[int, int, int],
+    diff_step: float,
+    etol_scale: float,
+) -> list[float]:
+    states_avg = (states_p + states_m) / 2
+    states_deriv = (states_p - states_m) / diff_step
+    return [
+        get_QFI(state_avg, state_deriv, etol_scale)
+        for state_avg, state_deriv in zip(states_avg, states_deriv)
+    ]
+
+
+def _get_time_sections(times: np.ndarray, section_size: float = 1) -> Iterator[np.ndarray]:
+    for time in np.arange(times[0], times[-1], section_size):
+        start = int(np.argmax(times >= time))
+        end = int(np.argmax(times >= time + section_size))
+        yield times[start : end + 1]
 
 
 ################################################################################
@@ -321,7 +335,7 @@ def get_QFI_bound_vals(
     coupling: float,
     decay_res: float,
     decay_spin: float,
-    initial_state: qutip.Qobj,
+    initial_state: np.ndarray,
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
     atol: float = DEFAULT_ATOL,
@@ -329,40 +343,63 @@ def get_QFI_bound_vals(
     diff_step: float = DEFAULT_DIFF_STEP,
 ) -> np.ndarray:
     """Get the QFI over time for a spin-boson system defined by the provided arguments."""
-    boson_dim = initial_state.shape[0] // 2**num_spins
-    state_dims = [initial_state.dims[0]] * 2
+    spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
+    boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 
     # compute time-evolved states
-    hamiltonian = get_hamiltonian(num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim)
-    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
-    states = get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
+    hamiltonian = get_hamiltonian_generator(
+        num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim
+    )
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    generator = hamiltonian + dissipator
+    op_shape = (spin_op_dim, boson_dim, boson_dim)
+    shape = (len(times),) + op_shape
+    states = get_states(times, initial_state, generator, method, rtol, atol).reshape(shape)
 
     # compute the generators of time evolution
-    jump_ops_p = get_jump_ops(num_spins, decay_res, decay_spin + diff_step / 2, boson_dim=boson_dim)
-    jump_ops_m = get_jump_ops(num_spins, decay_res, decay_spin - diff_step / 2, boson_dim=boson_dim)
-    generator_p = qutip.liouvillian(hamiltonian, jump_ops_p)
-    generator_m = qutip.liouvillian(hamiltonian, jump_ops_m)
+    dissipator_p = get_dissipator(
+        num_spins, decay_res, decay_spin + diff_step / 2, boson_dim=boson_dim
+    )
+    dissipator_m = get_dissipator(
+        num_spins, decay_res, decay_spin - diff_step / 2, boson_dim=boson_dim
+    )
+    generator_p = hamiltonian + dissipator_p
+    generator_m = hamiltonian + dissipator_m
 
     # compute kraus operators
-    kraus_ops_p = [qutip.to_kraus((time * generator_p).expm()) for time in times]
-    kraus_ops_m = [qutip.to_kraus((time * generator_m).expm()) for time in times]
+    kraus_ops_p = [_log_channel_to_kraus_ops(time * generator_p, op_shape) for time in times]
+    kraus_ops_m = [_log_channel_to_kraus_ops(time * generator_m, op_shape) for time in times]
 
     # compute bound at each time
     vals_bound = np.zeros(len(times))
     for tt, state in enumerate(states):
 
-        op_A = op_B = 0
-        for kraus_op_p, kraus_op_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
+        op_A = op_B = np.zeros_like(states[0])
+        for kraus_vec_p, kraus_vec_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
+            kraus_op_p = kraus_vec_p.reshape(op_shape)
+            kraus_op_m = kraus_vec_m.reshape(op_shape)
             kraus_op = (kraus_op_p + kraus_op_m) / 2
             kraus_op_deriv = (kraus_op_p - kraus_op_m) / diff_step
-            kraus_op_deriv_dag = kraus_op_deriv.dag()
+            kraus_op_deriv_dag = spin_ops.adjoint(kraus_op_deriv)
 
-            op_A += kraus_op_deriv_dag * kraus_op_deriv
-            op_B += 1j * kraus_op_deriv_dag * kraus_op
+            op_A += spin_ops.matmul(kraus_op_deriv_dag, kraus_op_deriv)
+            op_B += 1j * spin_ops.matmul(kraus_op_deriv_dag, kraus_op)
 
-        qutip_state = qutip.Qobj(state, dims=state_dims)
-        term_A = qutip.expect(op_A, qutip_state)
-        term_B = qutip.expect(op_B, qutip_state)
+        term_A = state.conj().ravel() @ op_A.ravel()
+        term_B = state.conj().ravel() @ op_B.ravel()
         vals_bound[tt] = (term_A - term_B**2).real
 
     return 4 * vals_bound
+
+
+def _log_channel_to_kraus_ops(
+    log_channel: scipy.sparse.spmatrix, op_shape: tuple[int, ...]
+) -> np.ndarray:
+    """Get the Kraus operators of a quantum channel specified by its natural logarithm."""
+    channel = np.array(scipy.sparse.linalg.expm(log_channel.tocsc()).todense())
+    vals, vecs = np.linalg.eigh(channel)
+    return [
+        np.sqrt(abs(val)) * vec.reshape(op_shape)
+        for val, vec in zip(vals, vecs.T)
+        if not np.isclose(val, 0)
+    ]

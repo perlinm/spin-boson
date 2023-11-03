@@ -11,7 +11,7 @@ from typing import Callable, Sequence
 
 import numpy as np
 
-import methods_PS as methods
+import methods
 
 
 def get_data_dir(data_dir: str, state_key: str) -> str:
