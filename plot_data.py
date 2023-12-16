@@ -14,7 +14,8 @@ import scipy
 import collect_data
 
 
-DEFAULT_DATA_DIR = "data"
+DATA_DIR = "data"
+BASE_FIG_DIR = "figures"
 DOT_KWARGS = dict(linestyle="-", marker=".")
 FIGSIZE = (3.4, 2.4)
 SURFACE_FIGSIZE = (2.3, 1.8)
@@ -26,7 +27,7 @@ def get_QFI_data(
     decay_res: float,
     decay_spin: float,
     num_spins: int,
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: str = DATA_DIR,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get raw simulated QFI data.
 
@@ -45,7 +46,7 @@ def get_max_QFI(
     decay_res: float,
     decay_spin: float,
     num_spins: int,
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: str = DATA_DIR,
 ) -> float:
     """Get the maximum QFI observed in simulations."""
     return get_QFI_data(state_key, decay_res, decay_spin, num_spins, data_dir)[1].max()
@@ -57,7 +58,7 @@ def get_scaling_exponent(
     decay_res: float,
     decay_spin: float,
     num_spin_vals: tuple[int, ...],
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: str = DATA_DIR,
 ) -> float:
     """Extract QFI scaling exponents: max_t QFI(t) ~ N^x."""
     max_QFI = [
@@ -80,7 +81,7 @@ def get_exp_fit_params(
     return fit_params, fit_cov
 
 
-def get_fig_dir(subdir: str = "", base_dir: str = "figues") -> str:
+def get_fig_dir(subdir: str = "", base_dir: str = BASE_FIG_DIR) -> str:
     """Make and return a figure directory."""
     fig_dir = os.path.join(base_dir, subdir)
     os.makedirs(fig_dir, exist_ok=True)
