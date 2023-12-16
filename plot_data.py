@@ -129,8 +129,7 @@ def plot_time_series(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.tight_layout(pad=0.1)
 
         fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-        # plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.show()
+        plt.savefig(os.path.join(fig_dir, fig_name))
         plt.close()
 
 
@@ -165,8 +164,7 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
         plt.tight_layout(pad=0.1)
 
         fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-        # plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.show()
+        plt.savefig(os.path.join(fig_dir, fig_name))
         plt.close()
 
 
@@ -198,8 +196,7 @@ def plot_dicke_k(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.tight_layout(pad=0.1)
 
         fig_name = f"dicke-k_{decay_res:.2f}.pdf"
-        # plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.show()
+        plt.savefig(os.path.join(fig_dir, fig_name))
         plt.close()
 
 
@@ -231,8 +228,7 @@ def plot_dicke_g(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.tight_layout(pad=0.1)
 
         fig_name = f"dicke-g_{decay_spin:.2f}.pdf"
-        # plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.show()
+        plt.savefig(os.path.join(fig_dir, fig_name))
         plt.close()
 
 
@@ -270,8 +266,7 @@ def plot_surface_exponents(decay_vals: Sequence[float], silent: bool = False) ->
         plt.tight_layout(pad=0.1)
 
         fig_name = f"exponents_{state_key}.pdf"
-        # plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.show()
+        plt.savefig(os.path.join(fig_dir, fig_name))
         plt.close()
 
 
@@ -306,8 +301,7 @@ def plot_surface_maxima(decay_vals: Sequence[float]) -> None:
     plt.tight_layout(pad=0.1)
 
     fig_name = f"{plot}_N{num_spins}.pdf"
-    # plt.savefig(os.path.join(fig_dir, fig_name))
-    plt.show()
+    plt.savefig(os.path.join(fig_dir, fig_name))
     plt.close()
 
 
@@ -341,8 +335,7 @@ def plot_surface_dicke(decay_vals: Sequence[float]) -> None:
     plt.tight_layout(pad=0.1)
 
     fig_name = f"{plot}_N{num_spins}.pdf"
-    # plt.savefig(os.path.join(fig_dir, fig_name))
-    plt.show()
+    plt.savefig(os.path.join(fig_dir, fig_name))
     plt.close()
 
 
