@@ -15,6 +15,9 @@ import collect_data
 
 
 DEFAULT_DATA_DIR = "data"
+DOT_KWARGS = dict(linestyle="-", marker=".")
+FIGSIZE = (3.4, 2.4)
+SURFACE_FIGSIZE = (2.3, 1.8)
 
 
 @functools.cache
@@ -32,7 +35,8 @@ def get_QFI_data(
     """
     args = (state_key, num_spins, decay_res, decay_spin)
     file_QFI = collect_data.get_file_path(data_dir, "qfi", *args)
-    return np.loadtxt(file_QFI, unpack=True)
+    time, vals = np.loadtxt(file_QFI, unpack=True)
+    return time, vals
 
 
 @functools.cache
@@ -62,7 +66,9 @@ def get_scaling_exponent(
     return get_exp_fit_params(num_spin_vals, max_QFI)[0][-1]
 
 
-def get_exp_fit_params(x_vals: Sequence[int], y_vals: Sequence[float]) -> float:
+def get_exp_fit_params(
+    x_vals: Sequence[int], y_vals: Sequence[float]
+) -> tuple[np.ndarray, np.ndarray]:
     """Get the fit parameters (a,b,c) in y ~= a x^c - b."""
     fit_params, fit_cov = scipy.optimize.curve_fit(
         lambda xx, aa, bb, cc: aa * xx**cc - bb,
@@ -97,16 +103,255 @@ def get_state_name(state_key: str) -> str:
     return state_key
 
 
+def plot_time_series(decay_vals: Sequence[float], silent: bool = False) -> None:
+    """
+    QFI as a function of time.
+    Plots several system sizes.
+    Fixes decay constants and initial state.
+    """
+    fig_dir = get_fig_dir("time_series")
+    state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 2, 5, 10, 15)]
+    for state_key, decay_res, decay_spin in itertools.product(state_keys, decay_vals, decay_vals):
+        if not silent:
+            print(state_key, decay_res, decay_spin)
+
+        plt.figure(figsize=FIGSIZE)
+        state_name = r"$|$" + get_state_name(state_key) + r"$\rangle$"
+        plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$, {state_name}")
+        for num_spins in [20, 15, 10, 5]:
+            if is_invalid(state_key, num_spins):
+                continue
+            time, vals = get_QFI_data(state_key, decay_res, decay_spin, num_spins)
+            plt.plot(time, vals, label=rf"$N={num_spins}$")
+        plt.xlabel(r"time $\times g$")
+        plt.ylabel(r"QFI $\times g^2$")
+        plt.legend(loc="lower right", framealpha=1)
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
+        # plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.show()
+        plt.close()
+
+
+def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None:
+    """
+    max_time QFI(time) as a function of system size.
+    Plots several initial states.
+    Fixes decay constants.
+    """
+    fig_dir = get_fig_dir("size_scaling")
+    state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 2, 5, 10)]
+    for decay_res, decay_spin in itertools.product(decay_vals, decay_vals):
+        if not silent:
+            print(decay_res, decay_spin)
+
+        plt.figure(figsize=FIGSIZE)
+        plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
+        for state_key in state_keys:
+            num_spin_vals = [
+                num_spins for num_spins in range(21) if not is_invalid(state_key, num_spins)
+            ]
+            max_QFI_vals = [
+                get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                for num_spins in num_spin_vals
+            ]
+            label = get_state_name(state_key)
+            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+        plt.xlabel(r"$N$")
+        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.legend(loc="best")
+        plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
+        # plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.show()
+        plt.close()
+
+
+def plot_dicke_k(decay_vals: Sequence[float], silent: bool = False) -> None:
+    """
+    max_time QFI(time) as a function of Dicke state index.
+    Plots several spin decay rates.
+    Fixes system size and resonator decay rate.
+    """
+    fig_dir = get_fig_dir("dicke-k")
+    num_spins = 20
+    num_spin_vals = list(range(num_spins + 1))
+    for decay_res in decay_vals:
+        if not silent:
+            print(decay_res)
+
+        plt.figure(figsize=FIGSIZE)
+        plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.2f}$")
+        for decay_spin in decay_vals:
+            max_QFI_vals = [
+                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins) for nn in num_spin_vals
+            ]
+            label = rf"$\gamma/g={decay_spin:.2f}$"
+            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+        plt.xlabel(r"D-$n$")
+        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.legend(loc="best", framealpha=1)
+        plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"dicke-k_{decay_res:.2f}.pdf"
+        # plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.show()
+        plt.close()
+
+
+def plot_dicke_g(decay_vals: Sequence[float], silent: bool = False) -> None:
+    """
+    max_time QFI(time) as a function of Dicke state index.
+    Plots several resonator decay rates.
+    Fixes system size and spin decay rate.
+    """
+    fig_dir = get_fig_dir("dicke-g")
+    num_spins = 20
+    num_spin_vals = list(range(num_spins + 1))
+    for decay_spin in decay_vals:
+        if not silent:
+            print(decay_spin)
+
+        plt.figure(figsize=FIGSIZE)
+        plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.2f}$")
+        for decay_res in decay_vals:
+            max_QFI_vals = [
+                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins) for nn in num_spin_vals
+            ]
+            label = rf"$\kappa/g={decay_res:.2f}$"
+            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+        plt.xlabel(r"D-$n$")
+        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.legend(loc="best", framealpha=1)
+        plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"dicke-g_{decay_spin:.2f}.pdf"
+        # plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.show()
+        plt.close()
+
+
+def plot_surface_exponents(decay_vals: Sequence[float], silent: bool = False) -> None:
+    """
+    Surface plot of QFI scaling exponent as a function of decay rates.
+    Fixes initial state.
+    """
+    fig_dir = get_fig_dir("surface_exponents")
+    state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in range(1, 16)]
+    for state_key in state_keys:
+        if not silent:
+            print(state_key)
+
+        min_num_spins, max_num_spins = 1, 20
+        if "dicke" in state_key:
+            min_num_spins = max(min_num_spins, int(state_key.split("-")[1]))
+        num_spin_vals = tuple(range(min_num_spins, max_num_spins + 1))
+
+        exponents = [
+            [
+                get_scaling_exponent(state_key, decay_res, decay_spin, num_spin_vals)
+                for decay_spin in decay_vals
+            ]
+            for decay_res in decay_vals
+        ]
+
+        fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
+        plt.title(get_state_name(state_key))
+        color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(exponents).T)
+        fig.colorbar(color_mesh, label="scaling exponent")
+        ax.set_xlabel(r"$\kappa/g$")
+        ax.set_ylabel(r"$\gamma/g$")
+        plt.xticks(decay_vals)
+        plt.tight_layout(pad=0.1)
+
+        fig_name = f"exponents_{state_key}.pdf"
+        # plt.savefig(os.path.join(fig_dir, fig_name))
+        plt.show()
+        plt.close()
+
+
+def plot_surface_maxima(decay_vals: Sequence[float]) -> None:
+    """
+    Surface plot of QFI maximum as a function of decay rates.
+    Maximizes over intial Dicke state index.
+    Fixes spin number.
+    """
+    fig_dir = get_fig_dir()
+    num_spins = 20
+    state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
+    maxima = [
+        [
+            max(
+                [
+                    get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                    for state_key in state_keys
+                ]
+            )
+            for decay_spin in decay_vals
+        ]
+        for decay_res in decay_vals
+    ]
+
+    fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
+    plt.title(rf"$N={num_spins}$")
+    color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(maxima).T, norm=colors.LogNorm())
+    fig.colorbar(color_mesh, label=r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$")
+    ax.set_xlabel(r"$\kappa/g$")
+    ax.set_ylabel(r"$\gamma/g$")
+    plt.tight_layout(pad=0.1)
+
+    fig_name = f"{plot}_N{num_spins}.pdf"
+    # plt.savefig(os.path.join(fig_dir, fig_name))
+    plt.show()
+    plt.close()
+
+
+def plot_surface_dicke(decay_vals: Sequence[float]) -> None:
+    """
+    Surface plot of optimal Dicke state index as a function of decay rates.
+    Fixes spin number.
+    """
+    fig_dir = get_fig_dir()
+    num_spins = 20
+    state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
+    dicke_index = [
+        [
+            np.argmax(
+                [
+                    get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                    for state_key in state_keys
+                ]
+            )
+            for decay_spin in decay_vals
+        ]
+        for decay_res in decay_vals
+    ]
+
+    fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
+    plt.title(rf"$N={num_spins}$")
+    color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(dicke_index).T)
+    fig.colorbar(color_mesh, label=r"D-$n$")
+    ax.set_xlabel(r"$\kappa/g$")
+    ax.set_ylabel(r"$\gamma/g$")
+    plt.tight_layout(pad=0.1)
+
+    fig_name = f"{plot}_N{num_spins}.pdf"
+    # plt.savefig(os.path.join(fig_dir, fig_name))
+    plt.show()
+    plt.close()
+
+
 if __name__ == "__main__":
     plot = sys.argv[1] if len(sys.argv) > 1 else ""
-    show_progress = True
+    silent = False
 
-    fig_dir = "figures"
-    figsize = (3.4, 2.4)
-    decay_vals = np.arange(0.2, 1.01, 0.2)
-    dot_kwargs = dict(linestyle="-", marker=".")
+    decay_vals = list(np.arange(0.2, 1.01, 0.2))
 
-    figsize = (3.4, 2.4)
     font_size = 10
     params = {
         "font.family": "serif",
@@ -119,138 +364,15 @@ if __name__ == "__main__":
     }
     plt.rcParams.update(params)
 
-    """
-    QFI as a function of time.
-    Plots several system sizes.
-    Fixes decay constants and initial state.
-    """
     if plot == "time_series":
-        fig_dir = get_fig_dir(plot)
-        state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 2, 5, 10, 15)]
-        for state_key, decay_res, decay_spin in itertools.product(
-            state_keys, decay_vals, decay_vals
-        ):
-            if show_progress:
-                print(state_key, decay_res, decay_spin)
-
-            plt.figure(figsize=figsize)
-            state_name = r"$|$" + get_state_name(state_key) + r"$\rangle$"
-            plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$, {state_name}")
-            for num_spins in [20, 15, 10, 5]:
-                if is_invalid(state_key, num_spins):
-                    continue
-                time, vals = get_QFI_data(state_key, decay_res, decay_spin, num_spins)
-                plt.plot(time, vals, label=rf"$N={num_spins}$")
-            plt.xlabel(r"time $\times g$")
-            plt.ylabel(r"QFI $\times g^2$")
-            plt.legend(loc="lower right", framealpha=1)
-            plt.tight_layout(pad=0.1)
-
-            fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-            plt.savefig(os.path.join(fig_dir, fig_name))
-            plt.close()
-
-    """
-    max_time QFI(time) as a function of system size.
-    Plots several initial states.
-    Fixes decay constants.
-    """
+        plot_time_series(decay_vals, silent)
     if plot == "size_scaling":
-        fig_dir = get_fig_dir(plot)
-        state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 2, 5, 10)]
-        for decay_res, decay_spin in itertools.product(decay_vals, decay_vals):
-            if show_progress:
-                print(decay_res, decay_spin)
-
-            plt.figure(figsize=figsize)
-            plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
-            for state_key in state_keys:
-                num_spin_vals = [
-                    num_spins for num_spins in range(21) if not is_invalid(state_key, num_spins)
-                ]
-                max_QFI_vals = [
-                    get_max_QFI(state_key, decay_res, decay_spin, num_spins)
-                    for num_spins in num_spin_vals
-                ]
-                label = get_state_name(state_key)
-                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
-            plt.xlabel(r"$N$")
-            plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
-            plt.legend(loc="best")
-            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
-            plt.tight_layout(pad=0.1)
-
-            fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-            plt.savefig(os.path.join(fig_dir, fig_name))
-            plt.close()
-
-    """
-    max_time QFI(time) as a function of Dicke state index.
-    Plots several spin decay rates.
-    Fixes system size and resonator decay rate.
-    """
+        plot_size_scaling(decay_vals, silent)
     if plot == "dicke-k":
-        fig_dir = get_fig_dir(plot)
-        num_spins = 20
-        num_spin_vals = list(range(num_spins + 1))
-        decay_vals = np.arange(0.2, 1.01, 0.2)
-        for decay_res in decay_vals:
-            if show_progress:
-                print(decay_res)
-
-            plt.figure(figsize=figsize)
-            plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.2f}$")
-            for decay_spin in decay_vals:
-                max_QFI_vals = [
-                    get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins)
-                    for nn in num_spin_vals
-                ]
-                label = rf"$\gamma/g={decay_spin:.2f}$"
-                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
-            plt.xlabel(r"D-$n$")
-            plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
-            plt.legend(loc="best", framealpha=1)
-            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
-            plt.tight_layout(pad=0.1)
-
-            fig_name = f"dicke-k_{decay_res:.2f}.pdf"
-            plt.savefig(os.path.join(fig_dir, fig_name))
-            plt.close()
-
-    """
-    max_time QFI(time) as a function of Dicke state index.
-    Plots several resonator decay rates.
-    Fixes system size and spin decay rate.
-    """
+        plot_dicke_k(decay_vals, silent)
     if plot == "dicke-g":
-        fig_dir = get_fig_dir(plot)
-        num_spins = 20
-        num_spin_vals = list(range(num_spins + 1))
-        decay_vals = np.arange(0.2, 1.01, 0.2)
-        for decay_spin in decay_vals:
-            if show_progress:
-                print(decay_spin)
+        plot_dicke_g(decay_vals, silent)
 
-            plt.figure(figsize=figsize)
-            plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.2f}$")
-            for decay_res in decay_vals:
-                max_QFI_vals = [
-                    get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins)
-                    for nn in num_spin_vals
-                ]
-                label = rf"$\kappa/g={decay_res:.2f}$"
-                plt.plot(num_spin_vals, max_QFI_vals, label=label, **dot_kwargs)
-            plt.xlabel(r"D-$n$")
-            plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
-            plt.legend(loc="best", framealpha=1)
-            plt.ticklabel_format(scilimits=[-3, 3], useMathText=True)
-            plt.tight_layout(pad=0.1)
-
-            fig_name = f"dicke-g_{decay_spin:.2f}.pdf"
-            plt.savefig(os.path.join(fig_dir, fig_name))
-            plt.close()
-
-    figsize = (2.3, 1.8)
     font_size = 8
     params = {
         "font.family": "serif",
@@ -263,110 +385,9 @@ if __name__ == "__main__":
     }
     plt.rcParams.update(params)
 
-    """
-    Surface plot of QFI scaling exponent as a function of decay rates.
-    Fixes initial state.
-    """
     if plot == "surface_exponents":
-        fig_dir = get_fig_dir(plot)
-        state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in range(1, 16)]
-        for state_key in state_keys:
-            if show_progress:
-                print(state_key)
-
-            min_num_spins, max_num_spins = 1, 20
-            if "dicke" in state_key:
-                min_num_spins = max(min_num_spins, int(state_key.split("-")[1]))
-            num_spin_vals = tuple(range(min_num_spins, max_num_spins + 1))
-
-            exponents = [
-                [
-                    get_scaling_exponent(state_key, decay_res, decay_spin, num_spin_vals)
-                    for decay_spin in decay_vals
-                ]
-                for decay_res in decay_vals
-            ]
-
-            fig, ax = plt.subplots(figsize=figsize)
-            plt.title(get_state_name(state_key))
-            color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(exponents).T)
-            fig.colorbar(color_mesh, label="scaling exponent")
-            ax.set_xlabel(r"$\kappa/g$")
-            ax.set_ylabel(r"$\gamma/g$")
-            plt.xticks(decay_vals)
-            plt.tight_layout(pad=0.1)
-
-            fig_name = f"exponents_{state_key}.pdf"
-            plt.savefig(os.path.join(fig_dir, fig_name))
-            plt.close()
-
-    """
-    Surface plot of QFI maximum as a function of decay rates.
-    Maximizes over intial Dicke state index.
-    Fixes spin number.
-    """
+        plot_surface_exponents(decay_vals, silent)
     if plot == "surface_maxima":
-        fig_dir = get_fig_dir()
-
-        num_spins = 20
-        state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
-        maxima = [
-            [
-                max(
-                    [
-                        get_max_QFI(state_key, decay_res, decay_spin, num_spins)
-                        for state_key in state_keys
-                    ]
-                )
-                for decay_spin in decay_vals
-            ]
-            for decay_res in decay_vals
-        ]
-
-        fig, ax = plt.subplots(figsize=figsize)
-        plt.title(rf"$N={num_spins}$")
-        color_mesh = ax.pcolormesh(
-            decay_vals, decay_vals, np.array(maxima).T, norm=colors.LogNorm()
-        )
-        fig.colorbar(color_mesh, label=r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$")
-        ax.set_xlabel(r"$\kappa/g$")
-        ax.set_ylabel(r"$\gamma/g$")
-        plt.tight_layout(pad=0.1)
-
-        fig_name = f"{plot}_N{num_spins}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.close()
-
-    """
-    Surface plot of optimal Dicke state index as a function of decay rates.
-    Fixes spin number.
-    """
+        plot_surface_maxima(decay_vals)
     if plot == "surface_dicke":
-        fig_dir = get_fig_dir()
-
-        num_spins = 20
-        state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
-        dicke_index = [
-            [
-                np.argmax(
-                    [
-                        get_max_QFI(state_key, decay_res, decay_spin, num_spins)
-                        for state_key in state_keys
-                    ]
-                )
-                for decay_spin in decay_vals
-            ]
-            for decay_res in decay_vals
-        ]
-
-        fig, ax = plt.subplots(figsize=figsize)
-        plt.title(rf"$N={num_spins}$")
-        color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(dicke_index).T)
-        fig.colorbar(color_mesh, label=r"D-$n$")
-        ax.set_xlabel(r"$\kappa/g$")
-        ax.set_ylabel(r"$\gamma/g$")
-        plt.tight_layout(pad=0.1)
-
-        fig_name = f"{plot}_N{num_spins}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
-        plt.close()
+        plot_surface_dicke(decay_vals)

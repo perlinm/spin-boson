@@ -394,7 +394,7 @@ def get_QFI_bound_vals(
 
 def _log_channel_to_kraus_ops(
     log_channel: scipy.sparse.spmatrix, op_shape: tuple[int, ...]
-) -> np.ndarray:
+) -> list[np.ndarray]:
     """Get the Kraus operators of a quantum channel specified by its natural logarithm."""
     channel = np.array(scipy.sparse.linalg.expm(log_channel.tocsc()).todense())
     vals, vecs = np.linalg.eigh(channel)
