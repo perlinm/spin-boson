@@ -249,10 +249,7 @@ def _get_coef_S(num_spins: int, spin_val: float, spin_shift: int) -> float:
 
 
 def _coef_alpha(num_spins: int, spin_val: float) -> int:
-    return sum(
-        _coef_dim(num_spins, other_spin_val)
-        for other_spin_val in np.arange(spin_val, num_spins / 2 + 1)
-    )
+    return scipy.special.comb(num_spins, num_spins / 2 + spin_val, exact=True)
 
 
 def _coef_dim(num_spins: int, spin_val: float) -> int:
