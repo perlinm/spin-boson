@@ -213,11 +213,11 @@ def get_QFI(
         block_nums.append(abs(vecs.conj().T @ block_deriv @ vecs) ** 2)
 
     # identify numerical cutoff for small eigenvalues, below which they get set to 0
-    etol = etol_scale * abs(min(val for vals in block_vals for val in vals))
+    etol = abs(etol_scale * min(val for vals in block_vals for val in vals))
 
     val_QFI = 0
     for vals, nums in zip(block_vals, block_nums):
-        vals[abs(vals) < etol] = 0
+        vals[vals < etol] = 0
         dens = vals[:, np.newaxis] + vals[np.newaxis, :]  # matrix M[i, j] = w[i] + w[j]
 
         # matrix of booleans (True/False) to ignore zero eigenvalues
@@ -373,7 +373,6 @@ def get_QFI_bound_vals(
     # compute bound at each time
     vals_bound = np.zeros(len(times))
     for tt, state in enumerate(states):
-
         op_A = op_B = np.zeros_like(states[0])
         for kraus_vec_p, kraus_vec_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
             kraus_op_p = kraus_vec_p.reshape(op_shape)
