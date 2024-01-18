@@ -20,6 +20,8 @@ DOT_KWARGS = dict(linestyle="-", marker=".")
 FIGSIZE = (3.4, 2.4)
 SURFACE_FIGSIZE = (2.3, 1.8)
 
+MAX_NUM_SPINS = 20
+
 
 @functools.cache
 def get_QFI_data(
@@ -49,7 +51,15 @@ def get_max_QFI(
     data_dir: str = DATA_DIR,
 ) -> float:
     """Get the maximum QFI observed in simulations."""
-    return get_QFI_data(state_key, decay_res, decay_spin, num_spins, data_dir)[1].max()
+    if state_key == "dicke-max":
+        return max(
+            get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins, data_dir)
+            for nn in range(MAX_NUM_SPINS + 1)
+        )
+    try:
+        return get_QFI_data(state_key, decay_res, decay_spin, num_spins, data_dir)[1].max()
+    except FileNotFoundError:
+        return 0
 
 
 @functools.cache
@@ -99,6 +109,8 @@ def get_state_name(state_key: str) -> str:
         return "GHZ"
     if state_key == "x-polarized":
         return "X"
+    if state_key == "dicke-max":
+        return r"$\max_n$\,D-$n$"
     if "dicke" in state_key:
         return state_key.replace("dicke", "D")
     return state_key
@@ -141,7 +153,7 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
     Fixes decay constants.
     """
     fig_dir = get_fig_dir("size_scaling")
-    state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 2, 5, 10)]
+    state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 5, 10)] + ["dicke-max"]
     for decay_res, decay_spin in itertools.product(decay_vals, decay_vals):
         if not silent:
             print(decay_res, decay_spin)
@@ -149,15 +161,16 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
         for state_key in state_keys:
-            num_spin_vals = [
-                num_spins for num_spins in range(21) if not is_invalid(state_key, num_spins)
-            ]
             max_QFI_vals = [
                 get_max_QFI(state_key, decay_res, decay_spin, num_spins)
-                for num_spins in num_spin_vals
+                for num_spins in range(MAX_NUM_SPINS + 1)
             ]
             label = get_state_name(state_key)
-            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+            dot_kwargs = DOT_KWARGS.copy()
+            if "max" in state_key:
+                dot_kwargs["color"] = "k"
+                dot_kwargs["linestyle"] = "--"
+            plt.plot(range(MAX_NUM_SPINS + 1), max_QFI_vals, label=label, **dot_kwargs)
         plt.xlabel(r"$N$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
         plt.legend(loc="best")
