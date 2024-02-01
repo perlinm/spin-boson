@@ -63,6 +63,11 @@ def collective_raise(num_spins: int) -> qutip.Qobj:
     return collective_lower(num_spins).dag()
 
 
+def qubit_sz(num_spins: int, target_index: int) -> qutip.Qobj:
+    """Construct the lowering operator for single spin."""
+    return act_on(qutip.sigmaz(), target_index, num_spins) / 2
+
+
 def collective_Sz(num_spins: int) -> qutip.Qobj:
     """Construct the a collective spin-z operator."""
     return collective_qubit_op(qutip.sigmaz(), num_spins) / 2
@@ -145,12 +150,21 @@ def get_jump_ops(
     num_spins: int, decay_res: float, decay_spin: float, dephasing: bool, boson_dim: int
 ) -> list[qutip.Qobj]:
     """Construct a list of jump operators corresponding to single-spin decay and boson decay."""
+    if dephasing:
+        # resonator and spin dephasing
+        qubit_op_source = qubit_sz
+        boson_op = qutip.num(boson_dim)
+    else:
+        # resonator and spin decay
+        qubit_op_source = qubit_lower
+        boson_op = qutip.destroy(boson_dim)
+
     qubit_ops = [
-        np.sqrt(decay_spin) * qutip.tensor(qubit_lower(num_spins, ss), qutip.qeye(boson_dim))
+        np.sqrt(decay_spin) * qutip.tensor(qubit_op_source(num_spins, ss), qutip.qeye(boson_dim))
         for ss in range(num_spins)
     ]
-    lower_res = qutip.tensor(*[qutip.qeye(2)] * num_spins, qutip.destroy(boson_dim))
-    return qubit_ops + [np.sqrt(decay_res) * lower_res]
+    resonaor_op = qutip.tensor(*[qutip.qeye(2)] * num_spins, boson_op)
+    return qubit_ops + [np.sqrt(decay_res) * resonaor_op]
 
 
 @functools.cache

@@ -122,13 +122,22 @@ def get_dissipator(
 
     The dissipator is represented by a super-operator that acts on a vectorized density matrix.
     """
+    if dephasing:
+        # resonator and spin dephasing
+        spin_op = spin_ops.get_local_dissipator(num_spins, "z")
+        boson_op = get_boson_num_op(boson_dim)
+    else:
+        # resonator and spin decay
+        spin_op = spin_ops.get_local_dissipator(num_spins, "-")
+        boson_op = get_boson_lower_op(boson_dim)
+
     spin_op_dim = spin_ops.get_spin_op_dim(num_spins)
     dissipator_res = scipy.sparse.kron(
         scipy.sparse.identity(spin_op_dim),
-        to_dissipation_generator(get_boson_lower_op(boson_dim)),
+        to_dissipation_generator(boson_op),
     )
     dissipator_spin = scipy.sparse.kron(
-        spin_ops.get_local_dissipator(num_spins, "-"),
+        spin_op,
         scipy.sparse.identity(boson_dim**2),
     )
     return decay_res * dissipator_res + decay_spin * dissipator_spin
