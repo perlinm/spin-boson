@@ -105,7 +105,7 @@ def batch_compute_QFI_vals(
         if re.match("dicke-[0-9]+$", state_key) and int(state_key.strip("dicke-")) > num_spins:
             continue
 
-        args = (state_key, num_spins, decay_res, decay_spin)
+        args = (state_key, num_spins, decay_res, decay_spin, dephasing)
         file_QFI = get_file_path(data_dir, "qfi", *args)
 
         if not os.path.isfile(file_QFI) or recompute:
@@ -145,7 +145,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--decay", type=float, nargs="+")
     parser.add_argument("--decay_res", type=float, nargs="+")
     parser.add_argument("--decay_spin", type=float, nargs="+")
-    parser.add_argument("--dephasing", type=bool, default=False)
+    parser.add_argument("--dephasing", action="store_true")
 
     # default physical parameters
     parser.add_argument("--coupling", type=float, default=1)
