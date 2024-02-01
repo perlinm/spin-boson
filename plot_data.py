@@ -151,8 +151,10 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
         plt.legend(loc="lower right", framealpha=1)
         plt.tight_layout(pad=0.1)
 
-        fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
+        fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}"
+        if dephasing:
+            fig_name += "_z"
+        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
         plt.close()
 
 
@@ -192,8 +194,10 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
         plt.tight_layout(pad=0.1)
 
-        fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
+        fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}"
+        if dephasing:
+            fig_name += "_z"
+        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
         plt.close()
 
 
@@ -230,8 +234,10 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
         plt.tight_layout(pad=0.1)
 
-        fig_name = f"dicke-k_{decay_res:.2f}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
+        fig_name = f"dicke-k_{decay_res:.2f}"
+        if dephasing:
+            fig_name += "_z"
+        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
         plt.close()
 
 
@@ -268,8 +274,10 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
         plt.tight_layout(pad=0.1)
 
-        fig_name = f"dicke-g_{decay_spin:.2f}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
+        fig_name = f"dicke-g_{decay_spin:.2f}"
+        if dephasing:
+            fig_name += "_z"
+        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
         plt.close()
 
 
@@ -308,8 +316,10 @@ def plot_surface_exponents(
         plt.xticks(decay_vals)
         plt.tight_layout(pad=0.1)
 
-        fig_name = f"exponents_{state_key}.pdf"
-        plt.savefig(os.path.join(fig_dir, fig_name))
+        fig_name = f"exponents_{state_key}"
+        if dephasing:
+            fig_name += "_z"
+        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
         plt.close()
 
 
@@ -343,8 +353,10 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     ax.set_ylabel(r"$\gamma/g$")
     plt.tight_layout(pad=0.1)
 
-    fig_name = f"{plot}_N{num_spins}.pdf"
-    plt.savefig(os.path.join(fig_dir, fig_name))
+    fig_name = f"{plot}_N{num_spins}"
+    if dephasing:
+        fig_name += "_z"
+    plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
     plt.close()
 
 
@@ -377,8 +389,10 @@ def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
     ax.set_ylabel(r"$\gamma/g$")
     plt.tight_layout(pad=0.1)
 
-    fig_name = f"{plot}_N{num_spins}.pdf"
-    plt.savefig(os.path.join(fig_dir, fig_name))
+    fig_name = f"{plot}_N{num_spins}"
+    if dephasing:
+        fig_name += "_z"
+    plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
     plt.close()
 
 
