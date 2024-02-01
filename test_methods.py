@@ -2,11 +2,12 @@
 from typing import Literal, Optional, Sequence
 
 import numpy as np
+import pytest
 import qutip
 import scipy
 
-import methods_qutip
 import methods
+import methods_qutip
 import spin_ops
 
 MAX_NUM_SPINS = 5
@@ -96,14 +97,15 @@ def test_spin_evolution() -> None:
         assert np.allclose(vals_QT, vals_PS)
 
 
-def test_spin_boson_evolution() -> None:
+@pytest.mark.parametrize("dephasing", [False, True])
+def test_spin_boson_evolution(dephasing: bool) -> None:
     times = np.linspace(0, 5, 20)
     spin_splitting = np.random.random()
     boson_splitting = np.random.random()
     coupling = np.random.random()
     decay_res = np.random.random()
     decay_spin = np.random.random()
-    args = (spin_splitting, boson_splitting, coupling, decay_res, decay_spin)
+    args = (spin_splitting, boson_splitting, coupling, decay_res, decay_spin, dephasing)
 
     def get_ghz_state(num_spins: int) -> np.ndarray:
         boson_dim = num_spins + 1

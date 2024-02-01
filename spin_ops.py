@@ -110,7 +110,7 @@ def get_dual(spin_op: scipy.sparse.spmatrix) -> scipy.sparse.spmatrix:
 
     The dual is determined by `rho @ M = (M^T @ rho^T)^T`.
     """
-    initial_format = spin_op.getformat()
+    initial_format = spin_op.format
     spin_op = spin_op.tocsr()
     num_spins = get_num_spins(spin_op.shape[0])
     new_op = scipy.sparse.dok_array(spin_op.shape, dtype=spin_op.dtype)

@@ -114,6 +114,7 @@ def get_dissipator(
     num_spins: int,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     *,
     boson_dim: int,
 ) -> scipy.sparse.spmatrix:
@@ -237,6 +238,7 @@ def get_QFI_vals(
     coupling: float,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     initial_state: np.ndarray,
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
@@ -250,7 +252,7 @@ def get_QFI_vals(
     boson_dim = int(np.round(np.sqrt(initial_state.size // spin_op_dim)))
 
     # compute the generators of time evolution
-    dissipator = get_dissipator(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    dissipator = get_dissipator(num_spins, decay_res, decay_spin, dephasing, boson_dim=boson_dim)
     hamiltonian_p = get_hamiltonian_generator(
         num_spins, spin_splitting, boson_splitting, coupling + diff_step / 2, boson_dim=boson_dim
     )

@@ -19,10 +19,18 @@ def get_data_dir(data_dir: str, state_key: str) -> str:
 
 
 def get_file_path(
-    data_dir: str, prefix: str, state_key: str, num_spins: int, decay_res: float, decay_spin: float
+    data_dir: str,
+    prefix: str,
+    state_key: str,
+    num_spins: int,
+    decay_res: float,
+    decay_spin: float,
+    dephasing: bool,
 ) -> str:
-    simulation_tag = f"{state_key}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}.txt"
-    return os.path.join(data_dir, f"{prefix}_{simulation_tag}")
+    base_tag = f"{state_key}_N{num_spins}_k{decay_res:.2f}_g{decay_spin:.2f}"
+    if dephasing:
+        base_tag += "_z"
+    return os.path.join(data_dir, f"{prefix}_{base_tag}.txt")
 
 
 def state_constructor(state_key: str) -> Callable[[int], np.ndarray]:
@@ -43,6 +51,7 @@ def compute_QFI_vals(
     num_spins: int,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     spin_splitting: float,
     boson_splitting: float,
     coupling: float,
@@ -61,6 +70,7 @@ def compute_QFI_vals(
         coupling,
         decay_res,
         decay_spin,
+        dephasing,
         initial_state,
     )
     sim_times = times[: len(vals_QFI)]
@@ -74,6 +84,7 @@ def batch_compute_QFI_vals(
     num_spin_vals: Sequence[int],
     decay_res_vals: Sequence[float],
     decay_spin_vals: Sequence[float],
+    dephasing: bool,
     spin_splitting: float,
     boson_splitting: float,
     coupling: float,
@@ -104,6 +115,7 @@ def batch_compute_QFI_vals(
                 num_spins,
                 decay_res,
                 decay_spin,
+                dephasing,
                 spin_splitting,
                 boson_splitting,
                 coupling,
@@ -133,6 +145,7 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--decay", type=float, nargs="+")
     parser.add_argument("--decay_res", type=float, nargs="+")
     parser.add_argument("--decay_spin", type=float, nargs="+")
+    parser.add_argument("--dephasing", type=bool, default=False)
 
     # default physical parameters
     parser.add_argument("--coupling", type=float, default=1)
@@ -173,6 +186,7 @@ if __name__ == "__main__":
         args.num_spins,
         args.decay_res,
         args.decay_spin,
+        args.dephasing,
         args.spin_splitting,
         args.boson_splitting,
         args.coupling,

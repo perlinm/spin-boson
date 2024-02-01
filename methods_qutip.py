@@ -142,7 +142,7 @@ def get_hamiltonian(
 @functools.cache
 @_with_default_boson_dim
 def get_jump_ops(
-    num_spins: int, decay_res: float, decay_spin: float, boson_dim: int
+    num_spins: int, decay_res: float, decay_spin: float, dephasing: bool, boson_dim: int
 ) -> list[qutip.Qobj]:
     """Construct a list of jump operators corresponding to single-spin decay and boson decay."""
     qubit_ops = [
@@ -275,6 +275,7 @@ def get_QFI_vals(
     coupling: float,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     initial_state: qutip.Qobj,
     method: str = DEFAULT_INTEGRATION_METHOD,
     rtol: float = DEFAULT_RTOL,
@@ -290,7 +291,7 @@ def get_QFI_vals(
     hamiltonian_m = get_hamiltonian(
         num_spins, spin_splitting, boson_splitting, coupling - diff_step / 2, boson_dim=boson_dim
     )
-    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
+    jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, dephasing, boson_dim=boson_dim)
 
     def _get_states(hamiltonian: qutip.Qobj) -> np.ndarray:
         return get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
@@ -333,7 +334,9 @@ def get_QFI_bound_vals(
     state_dims = [initial_state.dims[0]] * 2
 
     # compute time-evolved states
-    hamiltonian = get_hamiltonian(num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim)
+    hamiltonian = get_hamiltonian(
+        num_spins, spin_splitting, boson_splitting, coupling, boson_dim=boson_dim
+    )
     jump_ops = get_jump_ops(num_spins, decay_res, decay_spin, boson_dim=boson_dim)
     states = get_states(times, initial_state, hamiltonian, jump_ops, method, rtol, atol)
 
@@ -350,7 +353,6 @@ def get_QFI_bound_vals(
     # compute bound at each time
     vals_bound = np.zeros(len(times))
     for tt, state in enumerate(states):
-
         op_A = op_B = 0
         for kraus_op_p, kraus_op_m in zip(kraus_ops_p[tt], kraus_ops_m[tt]):
             kraus_op = (kraus_op_p + kraus_op_m) / 2

@@ -13,7 +13,6 @@ import scipy
 
 import collect_data
 
-
 DATA_DIR = "data"
 BASE_FIG_DIR = "figures"
 DOT_KWARGS = dict(linestyle="-", marker=".")
@@ -28,6 +27,7 @@ def get_QFI_data(
     state_key: str,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     num_spins: int,
     data_dir: str = DATA_DIR,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -36,7 +36,7 @@ def get_QFI_data(
     Simulation data is organized into a 2-D array `data` of shape (2, num_time_points),
     where `data[:, 0]` are simulation times, and `data[:, 1]` are values of QFI.
     """
-    args = (state_key, num_spins, decay_res, decay_spin)
+    args = (state_key, num_spins, decay_res, decay_spin, dephasing)
     file_QFI = collect_data.get_file_path(data_dir, "qfi", *args)
     time, vals = np.loadtxt(file_QFI, unpack=True)
     return time, vals
@@ -47,17 +47,25 @@ def get_max_QFI(
     state_key: str,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     num_spins: int,
     data_dir: str = DATA_DIR,
 ) -> float:
     """Get the maximum QFI observed in simulations."""
     if state_key == "dicke-max":
         return max(
-            get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins, data_dir)
+            get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins, data_dir)
             for nn in range(MAX_NUM_SPINS + 1)
         )
     try:
-        return get_QFI_data(state_key, decay_res, decay_spin, num_spins, data_dir)[1].max()
+        return get_QFI_data(
+            state_key,
+            decay_res,
+            decay_spin,
+            dephasing,
+            num_spins,
+            data_dir,
+        )[1].max()
     except FileNotFoundError:
         return 0
 
@@ -67,12 +75,14 @@ def get_scaling_exponent(
     state_key: str,
     decay_res: float,
     decay_spin: float,
+    dephasing: bool,
     num_spin_vals: tuple[int, ...],
     data_dir: str = DATA_DIR,
 ) -> float:
     """Extract QFI scaling exponents: max_t QFI(t) ~ N^x."""
     max_QFI = [
-        get_max_QFI(state_key, decay_res, decay_spin, num_spins) for num_spins in num_spin_vals
+        get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
+        for num_spins in num_spin_vals
     ]
     return get_exp_fit_params(num_spin_vals, max_QFI)[0][-1]
 
@@ -116,7 +126,7 @@ def get_state_name(state_key: str) -> str:
     return state_key
 
 
-def plot_time_series(decay_vals: Sequence[float], silent: bool = False) -> None:
+def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool = False) -> None:
     """
     QFI as a function of time.
     Plots several system sizes.
@@ -134,7 +144,7 @@ def plot_time_series(decay_vals: Sequence[float], silent: bool = False) -> None:
         for num_spins in [20, 15, 10, 5]:
             if is_invalid(state_key, num_spins):
                 continue
-            time, vals = get_QFI_data(state_key, decay_res, decay_spin, num_spins)
+            time, vals = get_QFI_data(state_key, decay_res, decay_spin, dephasing, num_spins)
             plt.plot(time, vals, label=rf"$N={num_spins}$")
         plt.xlabel(r"time $\times g$")
         plt.ylabel(r"QFI $\times g^2$")
@@ -146,7 +156,7 @@ def plot_time_series(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.close()
 
 
-def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None:
+def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool = False) -> None:
     """
     max_time QFI(time) as a function of system size.
     Plots several initial states.
@@ -162,7 +172,7 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
         plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
         for state_key in state_keys:
             max_QFI_vals = [
-                get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
                 for num_spins in range(MAX_NUM_SPINS + 1)
             ]
             label = get_state_name(state_key)
@@ -170,7 +180,12 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
             if "max" in state_key:
                 dot_kwargs["color"] = "k"
                 dot_kwargs["linestyle"] = "--"
-            plt.plot(range(MAX_NUM_SPINS + 1), max_QFI_vals, label=label, **dot_kwargs)
+            plt.plot(
+                range(MAX_NUM_SPINS + 1),
+                max_QFI_vals,
+                label=label,
+                **dot_kwargs,  # type:ignore[arg-type]
+            )
         plt.xlabel(r"$N$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
         plt.legend(loc="best")
@@ -182,7 +197,7 @@ def plot_size_scaling(decay_vals: Sequence[float], silent: bool = False) -> None
         plt.close()
 
 
-def plot_dicke_k(decay_vals: Sequence[float], silent: bool = False) -> None:
+def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = False) -> None:
     """
     max_time QFI(time) as a function of Dicke state index.
     Plots several spin decay rates.
@@ -199,10 +214,16 @@ def plot_dicke_k(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.2f}$")
         for decay_spin in decay_vals:
             max_QFI_vals = [
-                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins) for nn in num_spin_vals
+                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
+                for nn in num_spin_vals
             ]
             label = rf"$\gamma/g={decay_spin:.2f}$"
-            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+            plt.plot(
+                num_spin_vals,
+                max_QFI_vals,
+                label=label,
+                **DOT_KWARGS,  # type:ignore[arg-type]
+            )
         plt.xlabel(r"D-$n$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
         plt.legend(loc="best", framealpha=1)
@@ -214,7 +235,7 @@ def plot_dicke_k(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.close()
 
 
-def plot_dicke_g(decay_vals: Sequence[float], silent: bool = False) -> None:
+def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = False) -> None:
     """
     max_time QFI(time) as a function of Dicke state index.
     Plots several resonator decay rates.
@@ -231,10 +252,16 @@ def plot_dicke_g(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.2f}$")
         for decay_res in decay_vals:
             max_QFI_vals = [
-                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, num_spins) for nn in num_spin_vals
+                get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
+                for nn in num_spin_vals
             ]
             label = rf"$\kappa/g={decay_res:.2f}$"
-            plt.plot(num_spin_vals, max_QFI_vals, label=label, **DOT_KWARGS)
+            plt.plot(
+                num_spin_vals,
+                max_QFI_vals,
+                label=label,
+                **DOT_KWARGS,  # type:ignore[arg-type]
+            )
         plt.xlabel(r"D-$n$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
         plt.legend(loc="best", framealpha=1)
@@ -246,7 +273,9 @@ def plot_dicke_g(decay_vals: Sequence[float], silent: bool = False) -> None:
         plt.close()
 
 
-def plot_surface_exponents(decay_vals: Sequence[float], silent: bool = False) -> None:
+def plot_surface_exponents(
+    decay_vals: Sequence[float], dephasing: bool, silent: bool = False
+) -> None:
     """
     Surface plot of QFI scaling exponent as a function of decay rates.
     Fixes initial state.
@@ -264,7 +293,7 @@ def plot_surface_exponents(decay_vals: Sequence[float], silent: bool = False) ->
 
         exponents = [
             [
-                get_scaling_exponent(state_key, decay_res, decay_spin, num_spin_vals)
+                get_scaling_exponent(state_key, decay_res, decay_spin, dephasing, num_spin_vals)
                 for decay_spin in decay_vals
             ]
             for decay_res in decay_vals
@@ -284,7 +313,7 @@ def plot_surface_exponents(decay_vals: Sequence[float], silent: bool = False) ->
         plt.close()
 
 
-def plot_surface_maxima(decay_vals: Sequence[float]) -> None:
+def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     """
     Surface plot of QFI maximum as a function of decay rates.
     Maximizes over intial Dicke state index.
@@ -297,7 +326,7 @@ def plot_surface_maxima(decay_vals: Sequence[float]) -> None:
         [
             max(
                 [
-                    get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                    get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
                     for state_key in state_keys
                 ]
             )
@@ -319,7 +348,7 @@ def plot_surface_maxima(decay_vals: Sequence[float]) -> None:
     plt.close()
 
 
-def plot_surface_dicke(decay_vals: Sequence[float]) -> None:
+def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
     """
     Surface plot of optimal Dicke state index as a function of decay rates.
     Fixes spin number.
@@ -331,7 +360,7 @@ def plot_surface_dicke(decay_vals: Sequence[float]) -> None:
         [
             np.argmax(
                 [
-                    get_max_QFI(state_key, decay_res, decay_spin, num_spins)
+                    get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
                     for state_key in state_keys
                 ]
             )
@@ -357,6 +386,7 @@ if __name__ == "__main__":
     plot = sys.argv[1] if len(sys.argv) > 1 else ""
     silent = False
 
+    dephasing = False
     decay_vals = list(np.arange(0.2, 1.01, 0.2))
 
     font_size = 10
@@ -372,13 +402,13 @@ if __name__ == "__main__":
     plt.rcParams.update(params)
 
     if plot == "time_series":
-        plot_time_series(decay_vals, silent)
+        plot_time_series(decay_vals, dephasing, silent)
     if plot == "size_scaling":
-        plot_size_scaling(decay_vals, silent)
+        plot_size_scaling(decay_vals, dephasing, silent)
     if plot == "dicke-k":
-        plot_dicke_k(decay_vals, silent)
+        plot_dicke_k(decay_vals, dephasing, silent)
     if plot == "dicke-g":
-        plot_dicke_g(decay_vals, silent)
+        plot_dicke_g(decay_vals, dephasing, silent)
 
     font_size = 8
     params = {
@@ -393,8 +423,8 @@ if __name__ == "__main__":
     plt.rcParams.update(params)
 
     if plot == "surface_exponents":
-        plot_surface_exponents(decay_vals, silent)
+        plot_surface_exponents(decay_vals, dephasing, silent)
     if plot == "surface_maxima":
-        plot_surface_maxima(decay_vals)
+        plot_surface_maxima(decay_vals, dephasing)
     if plot == "surface_dicke":
-        plot_surface_dicke(decay_vals)
+        plot_surface_dicke(decay_vals, dephasing)
