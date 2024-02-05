@@ -11,6 +11,7 @@ state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in num_spin_vals]
 
 decay_res = sys.argv[1]
 decay_spin = sys.argv[2]
+dephasing = "--dephasing" if len(sys.argv) > 3 else ""
 
 decay_res_vals = [decay_res]
 decay_spin_vals = [decay_spin]
@@ -26,6 +27,8 @@ boson_splitting_str = " ".join(map(str, boson_splitting_vals))
 state_keys_str = " ".join(state_keys)
 
 job_name = f"qfi_N{max_spins}_k{decay_res}_g{decay_spin}"
+if dephasing:
+    job_name += "_z"
 base_name = os.path.join(job_dir, job_name)
 
 log_text = f"""#!/bin/sh
@@ -45,7 +48,8 @@ python3 collect_data.py \
 --decay_spin {decay_spin_str} \
 --spin_splitting {spin_splitting_str} \
 --boson_splitting {boson_splitting_str} \
---state_keys {state_keys_str}
+--state_keys {state_keys_str} \
+{dephasing}
 """
 
 os.makedirs(job_dir, exist_ok=True)
