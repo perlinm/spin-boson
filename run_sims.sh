@@ -2,7 +2,7 @@
 
 decay=(0 0.2 0.4 0.6 0.8 1.0)
 
-for num_spins in {5..20}; do
+for num_spins in {0..20}; do
   echo -------------------------
   echo $num_spins
   echo -------------------------
