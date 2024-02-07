@@ -154,7 +154,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
         fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}"
         if dephasing:
             fig_name += "_z"
-        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+        plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
         plt.close()
 
 
@@ -197,7 +197,7 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
         fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}"
         if dephasing:
             fig_name += "_z"
-        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+        plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
         plt.close()
 
 
@@ -237,7 +237,7 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         fig_name = f"dicke-k_{decay_res:.2f}"
         if dephasing:
             fig_name += "_z"
-        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+        plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
         plt.close()
 
 
@@ -277,7 +277,7 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         fig_name = f"dicke-g_{decay_spin:.2f}"
         if dephasing:
             fig_name += "_z"
-        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+        plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
         plt.close()
 
 
@@ -319,7 +319,7 @@ def plot_surface_exponents(
         fig_name = f"exponents_{state_key}"
         if dephasing:
             fig_name += "_z"
-        plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+        plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
         plt.close()
 
 
@@ -356,7 +356,7 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     fig_name = f"{plot}_N{num_spins}"
     if dephasing:
         fig_name += "_z"
-    plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+    plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
     plt.close()
 
 
@@ -392,7 +392,7 @@ def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
     fig_name = f"{plot}_N{num_spins}"
     if dephasing:
         fig_name += "_z"
-    plt.savefig(os.path.join(fig_dir, "{fig_name}.pdf"))
+    plt.savefig(os.path.join(fig_dir, f"{fig_name}.pdf"))
     plt.close()
 
 
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     plot = sys.argv[1] if len(sys.argv) > 1 else ""
     silent = False
 
-    dephasing = False
+    dephasing = True
     decay_vals = list(np.arange(0.2, 1.01, 0.2))
 
     font_size = 10
