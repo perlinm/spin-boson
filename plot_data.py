@@ -173,17 +173,23 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
         for state_key in state_keys:
+            min_num_spins = 0
+            if state_key[:6] == "dicke-" and state_key != "dicke-max":
+                min_num_spins = int(state_key[6:])
+            num_spin_vals = list(range(min_num_spins, MAX_NUM_SPINS + 1))
+
             max_QFI_vals = [
                 get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
-                for num_spins in range(MAX_NUM_SPINS + 1)
+                for num_spins in num_spin_vals
             ]
+
             label = get_state_name(state_key)
             dot_kwargs = DOT_KWARGS.copy()
             if "max" in state_key:
                 dot_kwargs["color"] = "k"
                 dot_kwargs["linestyle"] = "--"
             plt.plot(
-                range(MAX_NUM_SPINS + 1),
+                num_spin_vals,
                 max_QFI_vals,
                 label=label,
                 **dot_kwargs,  # type:ignore[arg-type]
