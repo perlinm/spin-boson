@@ -312,7 +312,8 @@ def plot_surface_exponents(
             ]
             for decay_res in decay_vals
         ]
-        exponents[0][0] = np.nan
+        if decay_vals[0] == 0:
+            exponents[0][0] = np.nan
 
         fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
         plt.title(get_state_name(state_key))
@@ -351,7 +352,8 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
         ]
         for decay_res in decay_vals
     ]
-    maxima[0][0] = np.nan
+    if decay_vals[0] == 0:
+        maxima[0][0] = np.nan
 
     fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
     plt.title(rf"$N={num_spins}$")
@@ -388,7 +390,8 @@ def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
         ]
         for decay_res in decay_vals
     ]
-    dicke_index[0][0] = np.nan
+    if decay_vals[0] == 0:
+        dicke_index[0][0] = np.nan
 
     fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
     plt.title(rf"$N={num_spins}$")
