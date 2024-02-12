@@ -13,13 +13,15 @@ import scipy
 
 import collect_data
 
-DATA_DIR = "data"
-BASE_FIG_DIR = "figures"
 DOT_KWARGS = dict(linestyle="-", marker=".")
 FIGSIZE = (3.4, 2.4)
 SURFACE_FIGSIZE = (2.3, 1.8)
 
 MAX_NUM_SPINS = 20
+
+QFI_OVER_TIME = False
+BASE_FIG_DIR = "figures" + ("-alt" if QFI_OVER_TIME else "")
+DATA_DIR = "data"
 
 
 @functools.cache
@@ -39,6 +41,8 @@ def get_QFI_data(
     args = (state_key, num_spins, decay_res, decay_spin, dephasing)
     file_QFI = collect_data.get_file_path(data_dir, "qfi", *args)
     time, vals = np.loadtxt(file_QFI, unpack=True)
+    if not QFI_OVER_TIME:
+        return time[1:], vals[1:] / time[1:]
     return time, vals
 
 
@@ -412,8 +416,8 @@ if __name__ == "__main__":
     plot = sys.argv[1] if len(sys.argv) > 1 else ""
     silent = False
 
-    dephasing = True
-    decay_vals = list(np.arange(0, 1.01, 0.2))
+    dephasing = False
+    decay_vals = list(np.arange(0.2, 1.01, 0.2))
 
     font_size = 10
     params = {
