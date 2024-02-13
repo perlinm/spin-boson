@@ -67,6 +67,7 @@ def get_max_QFI(
         return max(
             get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins, data_dir)
             for nn in range(MAX_NUM_SPINS + 1)
+            if nn >= num_spins
         )
     try:
         return get_QFI_data(
