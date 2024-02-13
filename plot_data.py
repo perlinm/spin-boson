@@ -6,7 +6,7 @@ import os
 import sys
 from typing import Sequence
 
-import matplotlib.colors as colors
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -144,7 +144,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
 
         plt.figure(figsize=FIGSIZE)
         state_name = r"$|$" + get_state_name(state_key) + r"$\rangle$"
-        plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$, {state_name}")
+        plt.title(rf"$\kappa/g={decay_res:.1f}$, $\gamma/g={decay_spin:.1f}$, {state_name}")
         for num_spins in [20, 15, 10, 5]:
             if is_invalid(state_key, num_spins):
                 continue
@@ -175,7 +175,7 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
             print(decay_res, decay_spin)
 
         plt.figure(figsize=FIGSIZE)
-        plt.title(rf"$\kappa/g={decay_res:.2f}$, $\gamma/g={decay_spin:.2f}$")
+        plt.title(rf"$\kappa/g={decay_res:.1f}$, $\gamma/g={decay_spin:.1f}$")
         for state_key in state_keys:
             min_num_spins = 0
             if state_key[:6] == "dicke-" and state_key != "dicke-max":
@@ -225,13 +225,13 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
             print(decay_res)
 
         plt.figure(figsize=FIGSIZE)
-        plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.2f}$")
+        plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.1f}$")
         for decay_spin in decay_vals:
             max_QFI_vals = [
                 get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
                 for nn in num_spin_vals
             ]
-            label = rf"$\gamma/g={decay_spin:.2f}$"
+            label = rf"$\gamma/g={decay_spin:.1f}$"
             plt.plot(
                 num_spin_vals,
                 max_QFI_vals,
@@ -240,8 +240,14 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
             )
         plt.xlabel(r"D-$n$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
-        plt.legend(loc="best", framealpha=1)
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
+
+        # legend
+        handles, labels = plt.gca().get_legend_handles_labels()
+        leg_title = mpl.lines.Line2D([0], [0], color="w", marker="None", label=r"$\gamma/g$")
+        handles = [leg_title] + handles
+        plt.legend(handles=handles, loc="upper right", framealpha=1, bbox_to_anchor=(1.2, 1.15))
+
         plt.tight_layout(pad=0.1)
 
         fig_name = f"dicke-k_{decay_res:.2f}"
@@ -265,13 +271,13 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
             print(decay_spin)
 
         plt.figure(figsize=FIGSIZE)
-        plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.2f}$")
+        plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.1f}$")
         for decay_res in decay_vals:
             max_QFI_vals = [
                 get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
                 for nn in num_spin_vals
             ]
-            label = rf"$\kappa/g={decay_res:.2f}$"
+            label = rf"${decay_res:.1f}$"
             plt.plot(
                 num_spin_vals,
                 max_QFI_vals,
@@ -280,8 +286,14 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
             )
         plt.xlabel(r"D-$n$")
         plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
-        plt.legend(loc="best", framealpha=1)
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
+
+        # legend
+        handles, labels = plt.gca().get_legend_handles_labels()
+        leg_title = mpl.lines.Line2D([0], [0], color="w", marker="None", label=r"$\kappa/g$")
+        handles = [leg_title] + handles
+        plt.legend(handles=handles, loc="upper right", framealpha=1, bbox_to_anchor=(1.2, 1.15))
+
         plt.tight_layout(pad=0.1)
 
         fig_name = f"dicke-g_{decay_spin:.2f}"
@@ -361,7 +373,9 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
 
     fig, ax = plt.subplots(figsize=SURFACE_FIGSIZE)
     plt.title(rf"$N={num_spins}$")
-    color_mesh = ax.pcolormesh(decay_vals, decay_vals, np.array(maxima).T, norm=colors.LogNorm())
+    color_mesh = ax.pcolormesh(
+        decay_vals, decay_vals, np.array(maxima).T, norm=mpl.colors.LogNorm()
+    )
     fig.colorbar(color_mesh, label=r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$")
     ax.set_xlabel(r"$\kappa/g$")
     ax.set_ylabel(r"$\gamma/g$")
