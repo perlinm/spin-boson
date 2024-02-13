@@ -104,7 +104,7 @@ def get_scaling_exponent(
 def get_min_num_spins(state_key: str) -> int:
     """Get minimum spin number for the given state."""
     if state_key[:6] == "dicke-" and state_key != "dicke-max":
-        return int(state_key[6:])
+        return int(state_key.strip("dicke-"))
     return 1
 
 
