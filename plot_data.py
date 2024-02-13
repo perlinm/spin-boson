@@ -232,7 +232,7 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
     Fixes system size and resonator decay rate.
     """
     fig_dir = get_fig_dir("dicke-k")
-    num_spins = 20
+    num_spins = MAX_NUM_SPINS
     num_spin_vals = list(range(num_spins + 1))
     for decay_res in decay_vals:
         if not silent:
@@ -278,7 +278,7 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
     Fixes system size and spin decay rate.
     """
     fig_dir = get_fig_dir("dicke-g")
-    num_spins = 20
+    num_spins = MAX_NUM_SPINS
     num_spin_vals = list(range(num_spins + 1))
     for decay_spin in decay_vals:
         if not silent:
@@ -366,7 +366,7 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     Fixes spin number.
     """
     fig_dir = get_fig_dir()
-    num_spins = 20
+    num_spins = MAX_NUM_SPINS
     state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
     maxima = [
         [
@@ -406,7 +406,7 @@ def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
     Fixes spin number.
     """
     fig_dir = get_fig_dir()
-    num_spins = 20
+    num_spins = MAX_NUM_SPINS
     state_keys = [f"dicke-{nn}" for nn in range(num_spins + 1)]
     dicke_index = [
         [
