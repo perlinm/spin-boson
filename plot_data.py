@@ -66,8 +66,7 @@ def get_max_QFI(
     if state_key == "dicke-max":
         return max(
             get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins, data_dir)
-            for nn in range(MAX_NUM_SPINS + 1)
-            if nn >= num_spins
+            for nn in range(num_spins + 1)
         )
     try:
         return get_QFI_data(
@@ -105,7 +104,7 @@ def get_min_num_spins(state_key: str) -> int:
     """Get minimum spin number for the given state."""
     if state_key[:6] == "dicke-" and state_key != "dicke-max":
         return int(state_key.strip("dicke-"))
-    return 1
+    return 0
 
 
 def get_exp_fit_params(
