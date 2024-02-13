@@ -24,6 +24,17 @@ BASE_FIG_DIR = "figures" + ("-qfi-over-time" if QFI_OVER_TIME else "")
 DATA_DIR = "data"
 
 
+if not QFI_OVER_TIME:
+    QFI_LABEL = r"QFI $\times g^2$"
+    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$"
+    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$"
+
+else:
+    QFI_LABEL = r"QFI$/t$ $\times g^2$"
+    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)/t$ $\times g^2$"
+    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)/t$ $\times g^2$"
+
+
 @functools.cache
 def get_QFI_data(
     state_key: str,
@@ -33,15 +44,11 @@ def get_QFI_data(
     num_spins: int,
     data_dir: str = DATA_DIR,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Get raw simulated QFI data.
-
-    Simulation data is organized into a 2-D array `data` of shape (2, num_time_points),
-    where `data[:, 0]` are simulation times, and `data[:, 1]` are values of QFI.
-    """
+    """Get raw simulated QFI data: time and QFI values."""
     args = (state_key, num_spins, decay_res, decay_spin, dephasing)
     file_QFI = collect_data.get_file_path(data_dir, "qfi", *args)
     time, vals = np.loadtxt(file_QFI, unpack=True)
-    if not QFI_OVER_TIME:
+    if QFI_OVER_TIME:
         return time[1:], vals[1:] / time[1:]
     return time, vals
 
@@ -71,7 +78,7 @@ def get_max_QFI(
             data_dir,
         )[1].max()
     except FileNotFoundError:
-        return 0
+        raise ValueError("No data available")
 
 
 @functools.cache
@@ -84,11 +91,20 @@ def get_scaling_exponent(
     data_dir: str = DATA_DIR,
 ) -> float:
     """Extract QFI scaling exponents: max_t QFI(t) ~ N^x."""
+    min_num_spins = get_min_num_spins(state_key)
     max_QFI = [
         get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
         for num_spins in num_spin_vals
+        if num_spins >= min_num_spins
     ]
     return get_exp_fit_params(num_spin_vals, max_QFI)[0][-1]
+
+
+def get_min_num_spins(state_key: str) -> int:
+    """Get minimum spin number for the given state."""
+    if state_key[:6] == "dicke-" and state_key != "dicke-max":
+        return int(state_key[6:])
+    return 1
 
 
 def get_exp_fit_params(
@@ -151,7 +167,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
             time, vals = get_QFI_data(state_key, decay_res, decay_spin, dephasing, num_spins)
             plt.plot(time, vals, label=rf"$N={num_spins}$")
         plt.xlabel(r"time $\times g$")
-        plt.ylabel(r"QFI $\times g^2$")
+        plt.ylabel(QFI_LABEL)
         plt.legend(loc="lower right", framealpha=1)
         plt.tight_layout(pad=0.1)
 
@@ -177,10 +193,8 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$\kappa/g={decay_res:.1f}$, $\gamma/g={decay_spin:.1f}$")
         for state_key in state_keys:
-            min_num_spins = 0
-            if state_key[:6] == "dicke-" and state_key != "dicke-max":
-                min_num_spins = int(state_key[6:])
-            num_spin_vals = list(range(min_num_spins, MAX_NUM_SPINS + 1))
+            min_num_spins = get_min_num_spins(state_key)
+            num_spin_vals = tuple(range(min_num_spins, MAX_NUM_SPINS + 1))
 
             max_QFI_vals = [
                 get_max_QFI(state_key, decay_res, decay_spin, dephasing, num_spins)
@@ -199,7 +213,7 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
                 **dot_kwargs,  # type:ignore[arg-type]
             )
         plt.xlabel(r"$N$")
-        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.ylabel(MAX_QFI_LABEL)
         plt.legend(loc="best")
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
         plt.tight_layout(pad=0.1)
@@ -239,7 +253,7 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
                 **DOT_KWARGS,  # type:ignore[arg-type]
             )
         plt.xlabel(r"D-$n$")
-        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.ylabel(MAX_QFI_LABEL)
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
 
         # legend
@@ -285,7 +299,7 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
                 **DOT_KWARGS,  # type:ignore[arg-type]
             )
         plt.xlabel(r"D-$n$")
-        plt.ylabel(r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$")
+        plt.ylabel(MAX_QFI_LABEL)
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
 
         # legend
@@ -316,10 +330,8 @@ def plot_surface_exponents(
         if not silent:
             print(state_key)
 
-        min_num_spins, max_num_spins = 1, 20
-        if "dicke" in state_key:
-            min_num_spins = max(min_num_spins, int(state_key.split("-")[1]))
-        num_spin_vals = tuple(range(min_num_spins, max_num_spins + 1))
+        min_num_spins = get_min_num_spins(state_key)
+        num_spin_vals = tuple(range(min_num_spins, MAX_NUM_SPINS + 1))
 
         exponents = [
             [
@@ -376,7 +388,7 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     color_mesh = ax.pcolormesh(
         decay_vals, decay_vals, np.array(maxima).T, norm=mpl.colors.LogNorm()
     )
-    fig.colorbar(color_mesh, label=r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$")
+    fig.colorbar(color_mesh, label=DOUBLE_MAX_QFI_LABEL)
     ax.set_xlabel(r"$\kappa/g$")
     ax.set_ylabel(r"$\gamma/g$")
     plt.tight_layout(pad=0.1)
