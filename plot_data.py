@@ -20,7 +20,7 @@ SURFACE_FIGSIZE = (2.3, 1.8)
 MAX_NUM_SPINS = 20
 
 QFI_OVER_TIME = False
-BASE_FIG_DIR = "figures" + ("-alt" if QFI_OVER_TIME else "")
+BASE_FIG_DIR = "figures" + ("-qfi-over-time" if QFI_OVER_TIME else "")
 DATA_DIR = "data"
 
 
