@@ -169,7 +169,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
         plt.xlabel(r"time $\times g$")
         plt.ylabel(QFI_LABEL)
         plt.legend(loc="lower right", framealpha=1)
-        plt.tight_layout(pad=0.1)
+        plt.tight_layout(pad=0.2)
 
         fig_name = f"time_{state_key}_k{decay_res:.2f}_g{decay_spin:.2f}"
         if dephasing:
@@ -216,7 +216,7 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
         plt.ylabel(MAX_QFI_LABEL)
         plt.legend(loc="best")
         plt.ticklabel_format(scilimits=(-3, 3), useMathText=True)
-        plt.tight_layout(pad=0.1)
+        plt.tight_layout(pad=0.2)
 
         fig_name = f"scaling_k{decay_res:.2f}_g{decay_spin:.2f}"
         if dephasing:
@@ -262,7 +262,7 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         handles = [leg_title] + handles
         plt.legend(handles=handles, loc="upper right", framealpha=1, bbox_to_anchor=(1.2, 1.15))
 
-        plt.tight_layout(pad=0.1)
+        plt.tight_layout(pad=0.2)
 
         fig_name = f"dicke-k_{decay_res:.2f}"
         if dephasing:
@@ -308,7 +308,7 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
         handles = [leg_title] + handles
         plt.legend(handles=handles, loc="upper right", framealpha=1, bbox_to_anchor=(1.2, 1.15))
 
-        plt.tight_layout(pad=0.1)
+        plt.tight_layout(pad=0.2)
 
         fig_name = f"dicke-g_{decay_spin:.2f}"
         if dephasing:
@@ -350,7 +350,7 @@ def plot_surface_exponents(
         ax.set_xlabel(r"$\kappa/g$")
         ax.set_ylabel(r"$\gamma/g$")
         plt.xticks(decay_vals)
-        plt.tight_layout(pad=0.1)
+        plt.tight_layout(pad=0.2)
 
         fig_name = f"exponents_{state_key}"
         if dephasing:
@@ -391,7 +391,7 @@ def plot_surface_maxima(decay_vals: Sequence[float], dephasing: bool) -> None:
     fig.colorbar(color_mesh, label=DOUBLE_MAX_QFI_LABEL)
     ax.set_xlabel(r"$\kappa/g$")
     ax.set_ylabel(r"$\gamma/g$")
-    plt.tight_layout(pad=0.1)
+    plt.tight_layout(pad=0.2)
 
     fig_name = f"{plot}_N{num_spins}"
     if dephasing:
@@ -429,7 +429,7 @@ def plot_surface_dicke(decay_vals: Sequence[float], dephasing: bool) -> None:
     fig.colorbar(color_mesh, label=r"D-$n$")
     ax.set_xlabel(r"$\kappa/g$")
     ax.set_ylabel(r"$\gamma/g$")
-    plt.tight_layout(pad=0.1)
+    plt.tight_layout(pad=0.2)
 
     fig_name = f"{plot}_N{num_spins}"
     if dephasing:
