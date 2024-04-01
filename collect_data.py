@@ -2,7 +2,6 @@
 """Script to simulate a spin-boson system."""
 import argparse
 import itertools
-import multiprocessing
 import os
 import re
 import sys
@@ -90,14 +89,9 @@ def batch_compute_QFI_vals(
     coupling: float,
     state_keys: Sequence[str],
     data_dir: str,
-    num_jobs: int = 1,
     recompute: bool = False,
     status_update: bool = False,
 ) -> None:
-    if num_jobs > 1:
-        processes = num_jobs if num_jobs >= 0 else multiprocessing.cpu_count()
-        pool = multiprocessing.Pool(processes=processes)
-        results = []
 
     for num_spins, decay_res, decay_spin, state_key in itertools.product(
         num_spin_vals, decay_res_vals, decay_spin_vals, state_keys
@@ -110,7 +104,7 @@ def batch_compute_QFI_vals(
 
         if not os.path.isfile(file_QFI) or recompute:
             initial_state = state_constructor(state_key)(num_spins)
-            job_args = (
+            compute_QFI_vals(
                 times,
                 num_spins,
                 decay_res,
@@ -123,14 +117,6 @@ def batch_compute_QFI_vals(
                 file_QFI,
                 status_update,
             )
-            if num_jobs > 1:
-                results.append(pool.apply_async(compute_QFI_vals, args=job_args))
-            else:
-                compute_QFI_vals(*job_args)
-
-    if num_jobs > 1:
-        pool.close()
-        pool.join()
 
 
 def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
@@ -160,7 +146,6 @@ def get_simulation_args(sys_argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--data_dir", type=str, default=default_data_dir)
 
     # miscellaneous arguments
-    parser.add_argument("--num_jobs", type=int, default=1)
     parser.add_argument("--recompute", action="store_true", default=False)
 
     args = parser.parse_args(sys_argv[1:])
@@ -192,7 +177,6 @@ if __name__ == "__main__":
         args.coupling,
         args.state_keys,
         args.data_dir,
-        args.num_jobs,
         args.recompute,
         status_update=True,
     )
