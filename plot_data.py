@@ -24,15 +24,17 @@ BASE_FIG_DIR = "figures" + ("-qfi-over-time" if QFI_OVER_TIME else "")
 DATA_DIR = "data"
 
 
-if not QFI_OVER_TIME:
-    QFI_LABEL = r"QFI $\times g^2$"
-    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)$ $\times g^2$"
-    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$ $\times g^2$"
+if QFI_OVER_TIME:
+    QFI_UNITS = " (units of $g^{-1})$"
+    QFI_LABEL = r"QFI$/t$" + QFI_UNITS
+    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)/t$" + QFI_UNITS
+    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)/t$" + QFI_UNITS
 
 else:
-    QFI_LABEL = r"QFI$/t$ $\times g^2$"
-    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)/t$ $\times g^2$"
-    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)/t$ $\times g^2$"
+    QFI_UNITS = " (units of $g^{-2}$)"
+    QFI_LABEL = "QFI" + QFI_UNITS
+    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)$" + QFI_UNITS
+    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$" + QFI_UNITS
 
 
 @functools.cache
