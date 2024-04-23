@@ -37,6 +37,11 @@ else:
     DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$" + QFI_UNITS
 
 
+LINESTYLES = itertools.cycle(["-", "--", "-.", ":"])
+MARKERS = itertools.cycle(["o", "p", "s", "D", "^", "."])
+MARKERSIZE = 4
+
+
 @functools.cache
 def get_QFI_data(
     state_key: str,
@@ -163,11 +168,11 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
         plt.figure(figsize=FIGSIZE)
         state_name = r"$|$" + get_state_name(state_key) + r"$\rangle$"
         plt.title(rf"$\kappa/g={decay_res:.1f}$, $\gamma/g={decay_spin:.1f}$, {state_name}")
-        for num_spins in [20, 15, 10, 5]:
+        for num_spins, linestyle in zip([20, 15, 10, 5], LINESTYLES):
             if is_invalid(state_key, num_spins):
                 continue
             time, vals = get_QFI_data(state_key, decay_res, decay_spin, dephasing, num_spins)
-            plt.plot(time, vals, label=rf"$N={num_spins}$")
+            plt.plot(time, vals, linestyle, label=rf"$N={num_spins}$")
         plt.xlabel(r"time $\times g$")
         plt.ylabel(QFI_LABEL)
         plt.legend(loc="lower right", framealpha=1)
@@ -188,13 +193,14 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
     """
     fig_dir = get_fig_dir("size_scaling")
     state_keys = ["ghz", "x-polarized"] + [f"dicke-{nn}" for nn in (1, 5, 10)] + ["dicke-max"]
+
     for decay_res, decay_spin in itertools.product(decay_vals, decay_vals):
         if not silent:
             print(decay_res, decay_spin)
 
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$\kappa/g={decay_res:.1f}$, $\gamma/g={decay_spin:.1f}$")
-        for state_key in state_keys:
+        for state_key, marker in zip(state_keys, MARKERS):
             min_num_spins = get_min_num_spins(state_key)
             num_spin_vals = tuple(range(min_num_spins, MAX_NUM_SPINS + 1))
 
@@ -204,15 +210,15 @@ def plot_size_scaling(decay_vals: Sequence[float], dephasing: bool, silent: bool
             ]
 
             label = get_state_name(state_key)
-            dot_kwargs = DOT_KWARGS.copy()
+            style_args = dict(marker=marker, markersize=MARKERSIZE)
             if "max" in state_key:
-                dot_kwargs["color"] = "k"
-                dot_kwargs["linestyle"] = "--"
+                style_args["color"] = "k"
+                style_args["linestyle"] = "--"
             plt.plot(
                 num_spin_vals,
                 max_QFI_vals,
                 label=label,
-                **dot_kwargs,  # type:ignore[arg-type]
+                **style_args,  # type:ignore[arg-type]
             )
         plt.xlabel(r"$N$")
         plt.ylabel(MAX_QFI_LABEL)
@@ -242,7 +248,7 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
 
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$N={num_spins}$, $\kappa/g={decay_res:.1f}$")
-        for decay_spin in decay_vals:
+        for decay_spin, marker in zip(decay_vals, MARKERS):
             max_QFI_vals = [
                 get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
                 for nn in num_spin_vals
@@ -252,7 +258,8 @@ def plot_dicke_k(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
                 num_spin_vals,
                 max_QFI_vals,
                 label=label,
-                **DOT_KWARGS,  # type:ignore[arg-type]
+                marker=marker,
+                markersize=MARKERSIZE,
             )
         plt.xlabel(r"D-$n$")
         plt.ylabel(MAX_QFI_LABEL)
@@ -288,7 +295,7 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
 
         plt.figure(figsize=FIGSIZE)
         plt.title(rf"$N={num_spins}$, $\gamma/g={decay_spin:.1f}$")
-        for decay_res in decay_vals:
+        for decay_res, marker in zip(decay_vals, MARKERS):
             max_QFI_vals = [
                 get_max_QFI(f"dicke-{nn}", decay_res, decay_spin, dephasing, num_spins)
                 for nn in num_spin_vals
@@ -298,7 +305,8 @@ def plot_dicke_g(decay_vals: Sequence[float], dephasing: bool, silent: bool = Fa
                 num_spin_vals,
                 max_QFI_vals,
                 label=label,
-                **DOT_KWARGS,  # type:ignore[arg-type]
+                marker=marker,
+                markersize=MARKERSIZE,
             )
         plt.xlabel(r"D-$n$")
         plt.ylabel(MAX_QFI_LABEL)

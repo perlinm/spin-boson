@@ -1,5 +1,4 @@
 matplotlib
-multiprocess
 numpy
 qutip
 scipy
