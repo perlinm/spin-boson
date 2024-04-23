@@ -27,19 +27,15 @@ BASE_FIG_DIR = "figures" + ("-qfi-over-time" if QFI_OVER_TIME else "")
 DATA_DIR = "data"
 
 
-TIME_UNITS = " (units of $g^{-1})$"
-
+QFI_LABEL = r"$F(g) \, g^2$"
+MAX_QFI_LABEL = r"$\mathrm{max}_t F(g,t) \, g^2$"
+DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n} F(g,t,n) \, g^2$"
 if QFI_OVER_TIME:
-    QFI_UNITS = " (units of $g^{-1})$"
-    QFI_LABEL = r"QFI$/t$" + QFI_UNITS
-    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)/t$" + QFI_UNITS
-    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)/t$" + QFI_UNITS
-
-else:
-    QFI_UNITS = " (units of $g^{-2}$)"
-    QFI_LABEL = "QFI" + QFI_UNITS
-    MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)$" + QFI_UNITS
-    DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$" + QFI_UNITS
+    old = r" \, g^2$"
+    new = r"/t \, g^2$"
+    QFI_LABEL = QFI_LABEL.replace(old, new)
+    MAX_QFI_LABEL = MAX_QFI_LABEL.replace(old, new)
+    DOUBLE_MAX_QFI_LABEL = DOUBLE_MAX_QFI_LABEL.replace(old, new)
 
 
 @functools.cache
@@ -173,7 +169,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
                 continue
             time, vals = get_QFI_data(state_key, decay_res, decay_spin, dephasing, num_spins)
             plt.plot(time, vals, linestyle, label=rf"$N={num_spins}$")
-        plt.xlabel("time" + TIME_UNITS)
+        plt.xlabel(r"$tg$")
         plt.ylabel(QFI_LABEL)
         plt.legend(loc="lower right", framealpha=1)
         plt.tight_layout(pad=0.2)
