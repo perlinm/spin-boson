@@ -17,7 +17,7 @@ FIGSIZE = (3.4, 2.4)
 SURFACE_FIGSIZE = (2.3, 1.8)
 
 LINESTYLES = itertools.cycle(["-", "--", "-.", ":"])
-MARKERS = itertools.cycle(["o", "p", "s", "D", "^", "."])
+MARKERS = itertools.cycle(["o", "s", "D", "^", "v", "."])
 MARKERSIZE = 4
 
 MAX_NUM_SPINS = 20
