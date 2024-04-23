@@ -13,9 +13,12 @@ import scipy
 
 import collect_data
 
-DOT_KWARGS = dict(linestyle="-", marker=".")
 FIGSIZE = (3.4, 2.4)
 SURFACE_FIGSIZE = (2.3, 1.8)
+
+LINESTYLES = itertools.cycle(["-", "--", "-.", ":"])
+MARKERS = itertools.cycle(["o", "p", "s", "D", "^", "."])
+MARKERSIZE = 4
 
 MAX_NUM_SPINS = 20
 
@@ -35,11 +38,6 @@ else:
     QFI_LABEL = "QFI" + QFI_UNITS
     MAX_QFI_LABEL = r"$\mathrm{max}_t$ QFI$(t)$" + QFI_UNITS
     DOUBLE_MAX_QFI_LABEL = r"$\mathrm{max}_{t,n}$ QFI$(t,n)$" + QFI_UNITS
-
-
-LINESTYLES = itertools.cycle(["-", "--", "-.", ":"])
-MARKERS = itertools.cycle(["o", "p", "s", "D", "^", "."])
-MARKERSIZE = 4
 
 
 @functools.cache
