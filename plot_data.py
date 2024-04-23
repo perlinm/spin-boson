@@ -27,6 +27,8 @@ BASE_FIG_DIR = "figures" + ("-qfi-over-time" if QFI_OVER_TIME else "")
 DATA_DIR = "data"
 
 
+TIME_UNITS = " (units of $g^{-1})$"
+
 if QFI_OVER_TIME:
     QFI_UNITS = " (units of $g^{-1})$"
     QFI_LABEL = r"QFI$/t$" + QFI_UNITS
@@ -171,7 +173,7 @@ def plot_time_series(decay_vals: Sequence[float], dephasing: bool, silent: bool 
                 continue
             time, vals = get_QFI_data(state_key, decay_res, decay_spin, dephasing, num_spins)
             plt.plot(time, vals, linestyle, label=rf"$N={num_spins}$")
-        plt.xlabel(r"time $\times g$")
+        plt.xlabel("time" + TIME_UNITS)
         plt.ylabel(QFI_LABEL)
         plt.legend(loc="lower right", framealpha=1)
         plt.tight_layout(pad=0.2)
